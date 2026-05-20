@@ -1,3 +1,4 @@
+mod downloader;
 mod task;
 
 use calamine::{Reader, open_workbook_auto};
@@ -12,8 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let uni = row.get(0).map(|c| c.to_string()).unwrap_or_default();
         let url = row.get(1).map(|c| c.to_string()).unwrap_or_default();
         let tmp = CrawlTask { uni, url };
-        let path = tmp.output_path();
-        println!("{}", path.to_str().unwrap());
+        tmp.run();
     }
     Ok(())
 }
