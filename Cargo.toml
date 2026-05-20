@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 
 calamine = "0.35.0"
+futures = "0.3.32"
+reqwest = "0.13.3"
+tokio = { version = "1.52.3", features = ["full"] }
