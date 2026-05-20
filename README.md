@@ -1,6 +1,6 @@
 # Practice for the async programming in Rust
 
-## Task Discription
+## Task Description
 
 Given a xlsx, extracting the url and university name, output the corresponding main page in plane text.
 
