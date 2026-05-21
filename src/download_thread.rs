@@ -1,14 +1,16 @@
 use crate::task::creat_task_queue;
-use std::thread::spawn;
+use futures::future::join_all;
+use tokio::spawn;
 
-pub fn download_thread() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn download_thread() -> Result<(), Box<dyn std::error::Error>> {
     let tasks = creat_task_queue().unwrap();
     let handles: Vec<_> = tasks
         .into_iter()
-        .map(|x| spawn(move || x.run_sync()))
+        .map(|x| spawn(async move { x.run_sync().await }))
         .collect();
-    for handle in handles {
-        let _ = handle.join().unwrap();
+    let results = join_all(handles).await;
+    for result in results {
+        result??;
     }
     Ok(())
 }

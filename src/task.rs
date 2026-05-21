@@ -1,4 +1,4 @@
-use crate::downloader::download_sync;
+use crate::downloader::download_async;
 use calamine::{Reader, open_workbook_auto};
 use std::path::PathBuf;
 
@@ -12,8 +12,8 @@ impl CrawlTask {
     pub fn output_path(&self) -> PathBuf {
         PathBuf::from("output").join(format!("{}.html", (&self.uni)))
     }
-    pub fn run_sync(&self) -> anyhow::Result<()> {
-        download_sync(&self.url, self.output_path())
+    pub async fn run_sync(&self) -> anyhow::Result<()> {
+        download_async(&self.url, self.output_path()).await
     }
 }
 pub fn creat_task_queue() -> anyhow::Result<Vec<CrawlTask>> {
