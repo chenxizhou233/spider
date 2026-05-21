@@ -1,3 +1,4 @@
+mod download_async;
 mod download_process;
 mod download_thread;
 mod downloader;
