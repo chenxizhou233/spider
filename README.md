@@ -6,6 +6,11 @@ Given a xlsx, extracting the url and university name, output the corresponding m
 
 ## File structure
 
+For the async contagion, we have two branch for the implementation:
+
+### Process / Threads
+
+.
 ├── Cargo.lock
 ├── Cargo.toml
 ├── README.md
@@ -16,6 +21,19 @@ Given a xlsx, extracting the url and university name, output the corresponding m
 │   ├── main.rs
 │   └── task.rs // The abstraction of tasks
 └── 高校名称和官方网站.xlsx // The task xlsx
+
+### Tokio Coroutine
+
+.
+├── Cargo.lock
+├── Cargo.toml
+├── README.md
+├── src
+│   ├── download_thread.rs // The function that creates the coroutines.
+│   ├── downloader.rs // The async version of the naive downloading action
+│   ├── main.rs // The async main function
+│   └── task.rs // The struct of the Task
+└── 高校名称和官方网站.xlsx
 
 ## Tech details
 
