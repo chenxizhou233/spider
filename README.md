@@ -21,8 +21,13 @@ Given a xlsx, extracting the url and university name, output the corresponding m
 
 ### Concurrent with process
 
-In this sector, we use the `std::process::Command` to spawn a lot of `curl` process for the concurrent downloading. It is heavier.
+In this sector, we use the `std::process::Command` to spawn a lot of `curl` process for the concurrent downloading. This approach is relatively heavyweight because each task runs as an independent operating system process.
 
 ### Concurrent with thread
 
-We use the `std::thread::spawn` as our concurrent run time. It is based on the thread model. It is litter than the process model and it requires little modification on the naive implementation.
+We use the `std::thread::spawn` as our concurrent run time. This model is based on native operating system threads. It is lighter than the process-based model and requires only minimal modifications to the naive implementation.implementation.
+
+### Concurrent with coroutine
+
+We use the `tokio` as our async run time. It is built on the model of the coroutine.
+Tokio is built on lightweight asynchronous tasks (coroutines) scheduled in user space. Compared with the thread-based model, it usually consumes significantly fewer system resources because tasks are cooperatively scheduled and do not require blocking operating system threads while waiting for I/O.
