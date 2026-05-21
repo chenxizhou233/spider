@@ -1,51 +1,49 @@
-# Practice for the async programming in Rust
+# Practice for async/concurrent programming in Rust
 
 ## Task Description
 
-Given a xlsx, extracting the url and university name, output the corresponding main page in plane text.
+Given an xlsx file, extract the university name and URL, then download each university homepage into local html files.
 
-## File structure
+## Project Structure
 
-For the async contagion, we have two branch for the implementation:
+This repository now uses a **single unified structure** for three runtime models (process / thread / coroutine):
 
-### Process / Threads
-
+```text
 .
 ├── Cargo.lock
 ├── Cargo.toml
 ├── README.md
-├── src
-│   ├── download_process.rs // The process version of concurrent downloading
-│   ├── download_thread.rs // The thread version of concurrent downloading
-│   ├── downloader.rs // The naive implementation of downloading
-│   ├── main.rs
-│   └── task.rs // The abstraction of tasks
-└── 高校名称和官方网站.xlsx // The task xlsx
+└── src
+    ├── downloader
+    │   ├── async_reqwest.rs   # Async HTTP download implementation (reqwest + tokio)
+    │   ├── mod.rs
+    │   └── sync.rs            # Blocking HTTP download implementation
+    ├── runner
+    │   ├── coroutine.rs       # Coroutine-based concurrent scheduling (tokio tasks)
+    │   ├── mod.rs
+    │   ├── process.rs         # Process-based concurrent scheduling (curl subprocesses)
+    │   └── thread.rs          # Thread-based concurrent scheduling (std::thread)
+    ├── task
+    │   └── mod.rs             # Task model + xlsx loader + run_sync/run_async entry
+    └── main.rs                # Program entry and runtime mode selection
+```
 
-### Tokio Coroutine
+## Runtime Models
 
-.
-├── Cargo.lock
-├── Cargo.toml
-├── README.md
-├── src
-│   ├── download_thread.rs // The function that creates the coroutines.
-│   ├── downloader.rs // The async version of the naive downloading action
-│   ├── main.rs // The async main function
-│   └── task.rs // The struct of the Task
-└── 高校名称和官方网站.xlsx
+### Process model
 
-## Tech details
+Uses `std::process::Command` to spawn many `curl` subprocesses concurrently. This is the heaviest model because each task is an OS process.
 
-### Concurrent with process
+### Thread model
 
-In this sector, we use the `std::process::Command` to spawn a lot of `curl` process for the concurrent downloading. This approach is relatively heavyweight because each task runs as an independent operating system process.
+Uses `std::thread::spawn` to execute tasks concurrently. This model is lighter than process-based scheduling while preserving a synchronous implementation style.
 
-### Concurrent with thread
+### Coroutine model
 
-We use the `std::thread::spawn` as our concurrent run time. This model is based on native operating system threads. It is lighter than the process-based model and requires only minimal modifications to the naive implementation.implementation.
+Uses `tokio` tasks and async I/O (`reqwest` async client). This model is usually the most resource-efficient for large I/O-bound concurrency.
 
-### Concurrent with coroutine
+## Notes
 
-We use the `tokio` as our async run time. It is built on the model of the coroutine.
-Tokio is built on lightweight asynchronous tasks (coroutines) scheduled in user space. Compared with the thread-based model, it usually consumes significantly fewer system resources because tasks are cooperatively scheduled and do not require blocking operating system threads while waiting for I/O.
+- Task data is read from `高校名称和官方网站.xlsx` in the project root.
+- Output html files are written to the `output/` directory.
+- In `main.rs`, you can switch runtime mode by changing `RuntimeMode`.
