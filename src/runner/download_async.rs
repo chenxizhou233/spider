@@ -1,8 +1,8 @@
-use crate::task::creat_task_queue;
+use crate::task::task::creat_task_queue;
 use futures::future::join_all;
 use tokio::spawn;
 
-pub async fn download_async() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn download_async_inner() -> Result<(), Box<dyn std::error::Error>> {
     let tasks = creat_task_queue().unwrap();
     let handles: Vec<_> = tasks
         .into_iter()
@@ -13,4 +13,9 @@ pub async fn download_async() -> Result<(), Box<dyn std::error::Error>> {
         result??;
     }
     Ok(())
+}
+
+pub fn download_async() -> Result<(), Box<dyn std::error::Error>> {
+    let rt = tokio::runtime::Runtime::new()?;
+    rt.block_on(download_async_inner())
 }
