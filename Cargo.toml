@@ -9,4 +9,5 @@ anyhow = "1.0.102"
 calamine = "0.35.0"
 futures = "0.3.32"
 reqwest = { version = "0.13.3", features = ["blocking", "rustls"] }
+scraper = "0.24.0"
 tokio = { version = "1.52.3", features = ["full"] }
