@@ -45,7 +45,7 @@ pub fn record_usage(
     name: &str,
     run: impl FnOnce() -> Result<RunStats, Box<dyn Error>>,
 ) -> Result<ProfileReport, Box<dyn Error>> {
-    let sampler = MemorySampler::start(Duration::from_millis(10));
+    let sampler = MemorySampler::start(memory_sample_interval());
     let start = Instant::now();
     let result = run();
     let elapsed = start.elapsed();
@@ -221,6 +221,16 @@ fn percentile_duration(sorted: &[Duration], percentile: usize) -> Duration {
     sorted[index.min(sorted.len() - 1)]
 }
 
+#[cfg(target_os = "macos")]
+fn memory_sample_interval() -> Duration {
+    Duration::from_millis(50)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn memory_sample_interval() -> Duration {
+    Duration::from_millis(10)
+}
+
 #[cfg(target_os = "linux")]
 fn process_tree_rss_bytes() -> std::io::Result<u64> {
     let root_pid = process::id();
@@ -276,7 +286,56 @@ fn parse_status(status: &str) -> Option<(u32, u64)> {
     Some((ppid?, rss_kb.unwrap_or(0) * 1024))
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "macos")]
+fn process_tree_rss_bytes() -> std::io::Result<u64> {
+    let root_pid = process::id();
+    let output = process::Command::new("ps")
+        .args(["-axo", "pid=,ppid=,rss="])
+        .output()?;
+    if !output.status.success() {
+        return Ok(0);
+    }
+
+    let mut rss_by_pid = HashMap::new();
+    let mut children_by_ppid: HashMap<u32, Vec<u32>> = HashMap::new();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    for line in stdout.lines() {
+        let mut parts = line.split_whitespace();
+        let Some(pid) = parts.next().and_then(|value| value.parse::<u32>().ok()) else {
+            continue;
+        };
+        let Some(ppid) = parts.next().and_then(|value| value.parse::<u32>().ok()) else {
+            continue;
+        };
+        let rss_bytes = parts
+            .next()
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(0)
+            * 1024;
+
+        rss_by_pid.insert(pid, rss_bytes);
+        children_by_ppid.entry(ppid).or_default().push(pid);
+    }
+
+    let mut total = 0;
+    let mut seen = HashSet::new();
+    let mut stack = vec![root_pid];
+
+    while let Some(pid) = stack.pop() {
+        if !seen.insert(pid) {
+            continue;
+        }
+        total += rss_by_pid.get(&pid).copied().unwrap_or(0);
+        if let Some(children) = children_by_ppid.get(&pid) {
+            stack.extend(children);
+        }
+    }
+
+    Ok(total)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 fn process_tree_rss_bytes() -> std::io::Result<u64> {
     Ok(0)
 }

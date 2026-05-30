@@ -1,10 +1,14 @@
 use crate::{
+    downloader::downloader_sync::downloader_sync,
     profiler::RunStats,
     task::task::{CrawlTask, creat_task_queue},
 };
-use std::path::Path;
+use std::env;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::time::{Duration, Instant};
+
+const PROCESS_WORKER_ARG: &str = "--spider-process-worker";
 
 struct ChildTask {
     child: Child,
@@ -13,22 +17,42 @@ struct ChildTask {
     url: String,
 }
 
+pub fn run_process_worker_from_args() -> Result<bool, Box<dyn std::error::Error>> {
+    let mut args = env::args_os();
+    let _program = args.next();
+    if args.next().as_deref() != Some(std::ffi::OsStr::new(PROCESS_WORKER_ARG)) {
+        return Ok(false);
+    }
+
+    let url = args
+        .next()
+        .ok_or("missing process worker url")?
+        .into_string()
+        .map_err(|_| "process worker url is not valid unicode")?;
+    let output = args
+        .next()
+        .map(PathBuf::from)
+        .ok_or("missing process worker output path")?;
+
+    downloader_sync(&url, output)?;
+    Ok(true)
+}
+
 pub fn download_process_with_tasks(
     tasks: Vec<CrawlTask>,
     output_dir: impl AsRef<Path>,
 ) -> Result<RunStats, Box<dyn std::error::Error>> {
     let output_dir = output_dir.as_ref().to_path_buf();
     std::fs::create_dir_all(&output_dir)?;
+    let worker_exe = env::current_exe()?;
     let total = tasks.len();
     let mut handles: Vec<ChildTask> = tasks
         .into_iter()
         .map(move |task| {
             let output = task.output_path_in(output_dir.clone());
-            let child = Command::new("curl")
-                .arg("-sS")
-                .arg("-L")
+            let child = Command::new(&worker_exe)
+                .arg(PROCESS_WORKER_ARG)
                 .arg(&task.url)
-                .arg("-o")
                 .arg(output)
                 .spawn()?;
             Ok::<_, std::io::Error>(ChildTask {
@@ -52,7 +76,7 @@ pub fn download_process_with_tasks(
                 } else {
                     failed += 1;
                     eprintln!(
-                        "process skip {} ({}): curl exited with {status}",
+                        "process skip {} ({}): worker exited with {status}",
                         finished.uni, finished.url
                     );
                 }
