@@ -2,3 +2,4 @@ target
 output
 cache
 *.xlsx
+*.csv
