@@ -92,10 +92,14 @@ impl LocalCacheServer {
         let running = Arc::new(AtomicBool::new(true));
         let server_running = Arc::clone(&running);
 
+        let root = Arc::new(root);
         let handle = thread::spawn(move || {
             while server_running.load(Ordering::Relaxed) {
                 match listener.accept() {
-                    Ok((stream, _)) => handle_cache_request(stream, &root),
+                    Ok((stream, _)) => {
+                        let root = Arc::clone(&root);
+                        thread::spawn(move || handle_cache_request(stream, &root));
+                    }
                     Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(1));
                     }

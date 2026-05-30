@@ -1,4 +1,4 @@
-model,total,completed,failed,elapsed_ms,throughput_tasks_per_sec,latency_min_ms,latency_p50_ms,latency_p90_ms,latency_p99_ms,latency_max_ms,peak_rss_bytes,p99_rss_bytes,memory_samples
-process,28,28,0,379.410,73.80,161.029,218.324,262.899,282.288,282.288,275677184,275677184,21
-thread,28,28,0,318.997,87.77,203.883,269.431,294.963,303.142,303.142,40108032,40108032,20
-async,28,28,0,331.485,84.47,54.043,194.854,296.374,316.464,316.464,41668608,41668608,28
+model,runs,total_avg,completed_avg,failed_avg,elapsed_avg_ms,throughput_avg_tasks_per_sec,latency_min_ms,latency_p50_ms,latency_p90_ms,latency_p99_ms,latency_max_ms,peak_rss_max_bytes,p99_rss_bytes,memory_samples
+process,100,28.00,25.54,2.46,34.047,754.90,9.943,24.164,29.078,34.802,45.196,104136704,89833472,100
+thread,100,28.00,25.63,2.37,11.683,2225.32,2.333,6.970,9.885,13.687,28.805,33292288,33243136,100
+async,100,28.00,23.51,4.49,10.604,2228.50,2.778,5.641,7.961,10.616,13.352,31850496,31752192,100

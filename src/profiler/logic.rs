@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
-    fs, process,
+    process,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -9,6 +9,9 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
+
+#[cfg(target_os = "linux")]
+use std::fs;
 
 #[derive(Debug, Clone)]
 pub struct ProfileReport {
@@ -18,10 +21,25 @@ pub struct ProfileReport {
 }
 
 #[derive(Debug, Clone)]
+pub struct ProfileSummary {
+    pub runs: usize,
+    pub total_avg: f64,
+    pub completed_avg: f64,
+    pub failed_avg: f64,
+    pub elapsed_avg: Duration,
+    pub throughput_avg: f64,
+    pub latency: Option<LatencyReport>,
+    pub peak_rss_bytes: u64,
+    pub p99_rss_bytes: u64,
+    pub memory_samples: usize,
+}
+
+#[derive(Debug, Clone)]
 pub struct MemoryReport {
     pub samples: usize,
     pub peak_bytes: u64,
     pub p99_bytes: u64,
+    pub sample_bytes: Vec<u64>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -70,6 +88,26 @@ pub fn record_usage(
     })
 }
 
+pub fn record_usage_repeated(
+    name: &str,
+    runs: usize,
+    mut run: impl FnMut() -> Result<RunStats, Box<dyn Error>>,
+) -> Result<ProfileSummary, Box<dyn Error>> {
+    let mut reports = Vec::with_capacity(runs);
+    for run_index in 0..runs {
+        let report = record_usage(name, &mut run)?;
+        eprintln!(
+            "{name}: run {}/{}: {}",
+            run_index + 1,
+            runs,
+            report.summary()
+        );
+        reports.push(report);
+    }
+
+    Ok(ProfileSummary::from_reports(&reports))
+}
+
 impl ProfileReport {
     pub fn summary(&self) -> String {
         format!(
@@ -81,6 +119,78 @@ impl ProfileReport {
             format_bytes(self.memory.p99_bytes),
             self.memory.samples,
         )
+    }
+}
+
+impl ProfileSummary {
+    pub fn from_reports(reports: &[ProfileReport]) -> Self {
+        let runs = reports.len();
+        if reports.is_empty() {
+            return Self {
+                runs: 0,
+                total_avg: 0.0,
+                completed_avg: 0.0,
+                failed_avg: 0.0,
+                elapsed_avg: Duration::ZERO,
+                throughput_avg: 0.0,
+                latency: None,
+                peak_rss_bytes: 0,
+                p99_rss_bytes: 0,
+                memory_samples: 0,
+            };
+        }
+
+        let runs_f64 = runs as f64;
+        let total_avg = reports
+            .iter()
+            .map(|report| report.workload.total as f64)
+            .sum::<f64>()
+            / runs_f64;
+        let completed_avg = reports
+            .iter()
+            .map(|report| report.workload.completed as f64)
+            .sum::<f64>()
+            / runs_f64;
+        let failed_avg = reports
+            .iter()
+            .map(|report| report.workload.failed as f64)
+            .sum::<f64>()
+            / runs_f64;
+        let elapsed_avg = average_duration(reports.iter().map(|report| report.elapsed));
+        let throughput_avg = reports
+            .iter()
+            .map(|report| report.workload.throughput(report.elapsed))
+            .sum::<f64>()
+            / runs_f64;
+        let mut latencies = reports
+            .iter()
+            .flat_map(|report| report.workload.latencies.iter().copied())
+            .collect::<Vec<_>>();
+        let latency = latency_report(&mut latencies);
+        let mut memory_samples = reports
+            .iter()
+            .flat_map(|report| report.memory.sample_bytes.iter().copied())
+            .collect::<Vec<_>>();
+        memory_samples.sort_unstable();
+        let peak_rss_bytes = memory_samples.last().copied().unwrap_or(0);
+        let p99_rss_bytes = percentile_u64(&memory_samples, 99).unwrap_or(0);
+        let memory_samples = reports
+            .iter()
+            .map(|report| report.memory.samples)
+            .sum::<usize>();
+
+        Self {
+            runs,
+            total_avg,
+            completed_avg,
+            failed_avg,
+            elapsed_avg,
+            throughput_avg,
+            latency,
+            peak_rss_bytes,
+            p99_rss_bytes,
+            memory_samples,
+        }
     }
 }
 
@@ -104,19 +214,7 @@ impl RunStats {
 
     pub fn latency_report(&self) -> Option<LatencyReport> {
         let mut latencies = self.latencies.clone();
-        if latencies.is_empty() {
-            return None;
-        }
-
-        latencies.sort_unstable();
-        let len = latencies.len();
-        Some(LatencyReport {
-            min: latencies[0],
-            p50: percentile_duration(&latencies, 50),
-            p90: percentile_duration(&latencies, 90),
-            p99: percentile_duration(&latencies, 99),
-            max: latencies[len - 1],
-        })
+        latency_report(&mut latencies)
     }
 
     pub fn summary(&self, elapsed: Duration) -> String {
@@ -139,6 +237,36 @@ impl RunStats {
                 self.throughput(elapsed),
             ),
         }
+    }
+}
+
+fn latency_report(latencies: &mut [Duration]) -> Option<LatencyReport> {
+    if latencies.is_empty() {
+        return None;
+    }
+
+    latencies.sort_unstable();
+    let len = latencies.len();
+    Some(LatencyReport {
+        min: latencies[0],
+        p50: percentile_duration(latencies, 50),
+        p90: percentile_duration(latencies, 90),
+        p99: percentile_duration(latencies, 99),
+        max: latencies[len - 1],
+    })
+}
+
+fn average_duration(durations: impl Iterator<Item = Duration>) -> Duration {
+    let mut count = 0;
+    let total_secs = durations
+        .inspect(|_| count += 1)
+        .map(|duration| duration.as_secs_f64())
+        .sum::<f64>();
+
+    if count == 0 {
+        Duration::ZERO
+    } else {
+        Duration::from_secs_f64(total_secs / count as f64)
     }
 }
 
@@ -200,25 +328,35 @@ fn memory_report(mut samples: Vec<u64>) -> MemoryReport {
             samples: 0,
             peak_bytes: 0,
             p99_bytes: 0,
+            sample_bytes: Vec::new(),
         };
     }
 
     let sample_count = samples.len();
     samples.sort_unstable();
     let peak_bytes = *samples.last().unwrap_or(&0);
-    let p99_index = ((sample_count * 99).div_ceil(100)).saturating_sub(1);
-    let p99_bytes = samples[p99_index.min(sample_count - 1)];
+    let p99_bytes = percentile_u64(&samples, 99).unwrap_or(0);
 
     MemoryReport {
         samples: sample_count,
         peak_bytes,
         p99_bytes,
+        sample_bytes: samples,
     }
 }
 
 fn percentile_duration(sorted: &[Duration], percentile: usize) -> Duration {
     let index = ((sorted.len() * percentile).div_ceil(100)).saturating_sub(1);
     sorted[index.min(sorted.len() - 1)]
+}
+
+fn percentile_u64(sorted: &[u64], percentile: usize) -> Option<u64> {
+    if sorted.is_empty() {
+        return None;
+    }
+
+    let index = ((sorted.len() * percentile).div_ceil(100)).saturating_sub(1);
+    Some(sorted[index.min(sorted.len() - 1)])
 }
 
 #[cfg(target_os = "macos")]

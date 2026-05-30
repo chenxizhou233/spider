@@ -53,4 +53,4 @@ Tokio is built on lightweight asynchronous tasks (coroutines) scheduled in user 
 
 ### Profiler
 
-The profiler compares the process, thread and coroutine crawlers with cached local HTTP input. It records latency distribution, throughput and RSS memory usage, then writes the result to `Result.csv`.
+The profiler compares the process, thread and coroutine crawlers with cached local HTTP input. Each benchmark runs 100 times. Scalar fields in `Result.csv` are reported as averages across those runs, while latency p50, p90 and p99 are computed with the percentile definition over all completed task latency samples.
