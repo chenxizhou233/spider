@@ -13,11 +13,20 @@ impl CrawlTask {
     pub fn output_path(&self) -> PathBuf {
         PathBuf::from("output").join(format!("{}.html", (&self.uni)))
     }
+    pub fn output_path_in(&self, output_dir: impl Into<PathBuf>) -> PathBuf {
+        output_dir.into().join(format!("{}.html", (&self.uni)))
+    }
     pub fn run_sync(&self) -> anyhow::Result<()> {
         downloader_sync(&self.url, self.output_path())
     }
+    pub fn run_sync_to(&self, output: impl Into<PathBuf>) -> anyhow::Result<()> {
+        downloader_sync(&self.url, output.into())
+    }
     pub async fn run_async(&self) -> anyhow::Result<()> {
         downloader_async(&self.url, self.output_path()).await
+    }
+    pub async fn run_async_to(&self, output: impl Into<PathBuf>) -> anyhow::Result<()> {
+        downloader_async(&self.url, output.into()).await
     }
 }
 pub fn creat_task_queue() -> anyhow::Result<Vec<CrawlTask>> {
