@@ -54,3 +54,12 @@ Tokio is built on lightweight asynchronous tasks (coroutines) scheduled in user 
 ### Profiler
 
 The profiler compares the process, thread and coroutine crawlers with cached local HTTP input. Each benchmark runs 100 times. Scalar fields in `Result.csv` are reported as averages across those runs, while latency p50, p90 and p99 are computed with the percentile definition over all completed task latency samples.
+
+Set `SPIDER_CONCURRENCY` to cap the number of downloads running at the same time. When it is not set, the runners keep the original behavior and run all tasks concurrently. A limited run writes its report to `Result_<limit>.csv`, such as `Result_10.csv`.
+
+```sh
+SPIDER_CONCURRENCY=10 cargo run
+SPIDER_CONCURRENCY=10 cargo run --bin async
+SPIDER_CONCURRENCY=10 cargo run --bin thread
+SPIDER_CONCURRENCY=10 cargo run --bin process
+```

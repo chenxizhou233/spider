@@ -1,6 +1,7 @@
 use crate::{
     downloader::downloader_sync::downloader_sync,
     profiler::RunStats,
+    runner::effective_concurrency,
     task::task::{CrawlTask, creat_task_queue},
 };
 use std::env;
@@ -38,31 +39,24 @@ pub fn run_process_worker_from_args() -> Result<bool, Box<dyn std::error::Error>
     Ok(true)
 }
 
-pub fn download_process_with_tasks(
+pub fn download_process_with_tasks_limited(
     tasks: Vec<CrawlTask>,
     output_dir: impl AsRef<Path>,
+    concurrency_limit: Option<usize>,
 ) -> Result<RunStats, Box<dyn std::error::Error>> {
     let output_dir = output_dir.as_ref().to_path_buf();
     std::fs::create_dir_all(&output_dir)?;
     let worker_exe = env::current_exe()?;
     let total = tasks.len();
-    let mut handles: Vec<ChildTask> = tasks
-        .into_iter()
-        .map(move |task| {
-            let output = task.output_path_in(output_dir.clone());
-            let child = Command::new(&worker_exe)
-                .arg(PROCESS_WORKER_ARG)
-                .arg(&task.url)
-                .arg(output)
-                .spawn()?;
-            Ok::<_, std::io::Error>(ChildTask {
-                child,
-                start: Instant::now(),
-                uni: task.uni,
-                url: task.url,
-            })
-        })
-        .collect::<Result<_, _>>()?;
+    let concurrency = effective_concurrency(concurrency_limit, total);
+    let mut pending = tasks.into_iter();
+    let mut handles = Vec::new();
+
+    for _ in 0..concurrency {
+        if let Some(task) = pending.next() {
+            handles.push(spawn_process_task(task, &output_dir, &worker_exe)?);
+        }
+    }
 
     let mut latencies = Vec::new();
     let mut failed = 0;
@@ -80,6 +74,9 @@ pub fn download_process_with_tasks(
                         finished.uni, finished.url
                     );
                 }
+                if let Some(task) = pending.next() {
+                    handles.push(spawn_process_task(task, &output_dir, &worker_exe)?);
+                }
             } else {
                 index += 1;
             }
@@ -91,6 +88,32 @@ pub fn download_process_with_tasks(
     }
 
     Ok(RunStats::new(total, latencies, failed))
+}
+
+fn spawn_process_task(
+    task: CrawlTask,
+    output_dir: &Path,
+    worker_exe: &Path,
+) -> std::io::Result<ChildTask> {
+    let output = task.output_path_in(output_dir.to_path_buf());
+    let child = Command::new(worker_exe)
+        .arg(PROCESS_WORKER_ARG)
+        .arg(&task.url)
+        .arg(output)
+        .spawn()?;
+    Ok(ChildTask {
+        child,
+        start: Instant::now(),
+        uni: task.uni,
+        url: task.url,
+    })
+}
+
+pub fn download_process_with_tasks(
+    tasks: Vec<CrawlTask>,
+    output_dir: impl AsRef<Path>,
+) -> Result<RunStats, Box<dyn std::error::Error>> {
+    download_process_with_tasks_limited(tasks, output_dir, None)
 }
 
 pub fn download_process() -> Result<RunStats, Box<dyn std::error::Error>> {

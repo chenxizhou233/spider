@@ -1,15 +1,26 @@
 use super::logic::{ProfileReport, ProfileSummary};
-use std::{fs, io};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 const CSV_OUTPUT_PATH: &str = "Result.csv";
 const CSV_HEADER: &str = "model,total,completed,failed,elapsed_ms,throughput_tasks_per_sec,latency_min_ms,latency_p50_ms,latency_p90_ms,latency_p99_ms,latency_max_ms,peak_rss_bytes,p99_rss_bytes,memory_samples";
 const SUMMARY_CSV_HEADER: &str = "model,runs,total_avg,completed_avg,failed_avg,elapsed_avg_ms,throughput_avg_tasks_per_sec,latency_min_ms,latency_p50_ms,latency_p90_ms,latency_p99_ms,latency_max_ms,peak_rss_max_bytes,p99_rss_bytes,memory_samples";
 
 pub fn print_csv_report(results: &[(&str, ProfileReport)]) -> io::Result<()> {
+    print_csv_report_to_path(results, CSV_OUTPUT_PATH)
+}
+
+pub fn print_csv_report_to_path(
+    results: &[(&str, ProfileReport)],
+    output_path: impl AsRef<Path>,
+) -> io::Result<()> {
     let csv = csv_report(results);
-    fs::write(CSV_OUTPUT_PATH, &csv)?;
+    let output_path = output_path.as_ref();
+    fs::write(output_path, &csv)?;
     print!("{csv}");
-    eprintln!("csv report written to {CSV_OUTPUT_PATH}");
+    eprintln!("csv report written to {}", output_path.display());
     Ok(())
 }
 
@@ -20,11 +31,26 @@ pub fn print_csv_rows(results: &[(&str, ProfileReport)]) {
 }
 
 pub fn print_summary_csv_report(results: &[(&str, ProfileSummary)]) -> io::Result<()> {
+    print_summary_csv_report_to_path(results, CSV_OUTPUT_PATH)
+}
+
+pub fn print_summary_csv_report_to_path(
+    results: &[(&str, ProfileSummary)],
+    output_path: impl AsRef<Path>,
+) -> io::Result<()> {
     let csv = summary_csv_report(results);
-    fs::write(CSV_OUTPUT_PATH, &csv)?;
+    let output_path = output_path.as_ref();
+    fs::write(output_path, &csv)?;
     print!("{csv}");
-    eprintln!("csv report written to {CSV_OUTPUT_PATH}");
+    eprintln!("csv report written to {}", output_path.display());
     Ok(())
+}
+
+pub fn result_csv_path(concurrency_limit: Option<usize>) -> PathBuf {
+    match concurrency_limit {
+        Some(limit) => PathBuf::from(format!("Result_{limit}.csv")),
+        None => PathBuf::from(CSV_OUTPUT_PATH),
+    }
 }
 
 fn csv_report(results: &[(&str, ProfileReport)]) -> String {
