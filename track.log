@@ -1,0 +1,1133 @@
+Tokio 异步状态机动态跟踪分析
+============================
+
+一、跟踪命令和环境
+------------------
+
+构建命令：
+
+  cargo build --bin async
+
+调试命令：
+
+  timeout 35s rust-gdb -q target/debug/async -x gdb_track.gdb
+
+说明：
+
+  gdb_track.gdb 保留在仓库根目录，便于复现实验或继续增加断点。
+  gdb_track.gdb 当前是默认脚本，内容对应 gdb_track_v2_multi4.gdb。
+  gdb_track_v1_single.gdb 是单并发完整 await 切换跟踪版本。
+  gdb_track_v2_multi4.gdb 是并发 4 多状态机存储观察版本。
+  gdb 脚本内部设置了 SPIDER_CONCURRENCY=1，让 async 版本一次只推进一个下载任务，便于观察第一个任务的状态机。
+  gdb 原始日志输出到 /tmp/spider_gdb_raw.log。
+  本文件是根据原始日志整理后的中文分析版，不是 gdb 原样输出。
+
+版本和入口：
+
+  binary: target/debug/async
+  profile: dev, unoptimized + debuginfo
+  tokio: 1.52.3
+  futures-util: 0.3.32
+  reqwest: 0.13.3
+  入口: src/bin/async.rs
+  样本任务: 北京大学, http://www.pku.edu.cn/
+  输出路径: output/async/北京大学.html
+
+
+二、断点设计
+------------
+
+断点都打在 async/await 的关键源码行上：
+
+  src/runner/download_async.rs:16
+    tokio::fs::create_dir_all(&output_dir).await
+    外层 future 第一个 await。
+
+  src/runner/download_async.rs:17
+    第一个 await 返回后，继续计算 total。
+
+  src/runner/download_async.rs:25
+    per-task async block 中的 task.run_async_to(output).await。
+    这是 buffer_unordered 内每个下载任务自己的状态机。
+
+  src/downloader/downloader_async.rs:13-14
+    reqwest 的 send().await。
+
+  src/downloader/downloader_async.rs:15
+    send().await 返回后，执行 error_for_status()。
+
+  src/downloader/downloader_async.rs:16-17
+    response.bytes().await。
+
+  src/downloader/downloader_async.rs:19
+    bytes().await 返回后，检查 output.parent()。
+
+  src/downloader/downloader_async.rs:20
+    tokio::fs::create_dir_all(parent).await。
+
+  src/downloader/downloader_async.rs:23
+    tokio::fs::write(output, bytes).await。
+
+
+三、先说寄存器怎么看
+--------------------
+
+在 x86_64 SysV ABI 下，函数前几个参数通常通过这些寄存器传递：
+
+  rdi: 第 1 个参数
+  rsi: 第 2 个参数
+  rdx: 第 3 个参数
+  rcx: 第 4 个参数
+  r8:  第 5 个参数
+  r9:  第 6 个参数
+
+对 Future::poll 这种调用，理想情况下可以这样理解：
+
+  rdi ~= Pin<&mut Future>，也就是 future 状态机本体或某个包装指针
+  rsi ~= &mut Context，Context 里能拿到 Waker
+
+但是这次跟踪用的是“源码行断点”，不是精确卡在 Future::poll 函数入口。因此寄存器含义会随编译器生成的中间代码改变：
+
+  有些断点处 rdi/rsi 确实像 future/context 指针。
+  有些断点处 rdi 只是临时整数，比如 0x517。
+  有些恢复点 rdi/rsi/rdx 已经清零或变成普通临时值。
+  这时要以 gdb 的 info locals、backtrace 里的 cx=...、以及 _task_context=... 为准。
+
+所以本报告采用两层判断：
+
+  1. 寄存器层面：记录 pc/sp/bp/rdi/rsi/rdx/... 当时的值。
+  2. Rust 状态机层面：用 backtrace 和局部变量把这些地址对应回程序变量。
+
+
+四、整体状态机调用链
+--------------------
+
+程序中的 async 调用链是：
+
+  src/bin/async.rs
+    -> download_async_with_tasks_limited(...)
+      -> tokio::runtime::Runtime::new()
+      -> rt.block_on(download_async_inner_with_tasks_limited(...))
+        -> tokio::fs::create_dir_all(&output_dir).await
+        -> stream::iter(tasks.map(|task| async move { ... }))
+        -> buffer_unordered(concurrency)
+        -> collect::<Vec<_>>().await
+          -> 每个 task 的 async move 状态机
+            -> task.run_async_to(output).await
+              -> downloader_async(&self.url, output).await
+                -> client.get(url).send().await
+                -> response.bytes().await
+                -> tokio::fs::create_dir_all(parent).await
+                -> tokio::fs::write(output, bytes).await
+
+gdb backtrace 中对应的 poll 链是：
+
+  tokio::runtime::park::CachedParkThread::block_on
+  -> tokio::task::coop::budget
+  -> download_async_inner_with_tasks_limited::{async_fn#0}
+  -> Collect::poll
+  -> BufferUnordered::poll_next
+  -> FuturesUnordered::poll_next
+  -> per-task async_block
+  -> CrawlTask::run_async_to::{async_fn#0}
+  -> downloader_async::{async_fn#0}
+
+
+五、关键断点和变量对应
+----------------------
+
+1. 外层 future 到达第一个 await
+
+源码位置：
+
+  src/runner/download_async.rs:16
+  tokio::fs::create_dir_all(&output_dir).await
+
+命中 hit 1：
+
+  pc  = 0x5555559d94f6
+  sp  = 0x7fffffffaa60
+  bp  = 0x7fffffffcee0
+  rdi = 0x555556351ce0
+  rsi = 0x7fffffffb018
+  rdx = 0xc
+  rcx = 0x636e7973612f7475
+  r8  = 0x7ffff7e6fac0
+  r9  = 0xc
+  _task_context = 0x7fffffffaff8
+
+逐项解释：
+
+  pc:
+    当前机器指令地址，落在 download_async_inner_with_tasks_limited 的 async 状态机代码里。
+
+  sp:
+    当前栈顶。这里是 runtime 主线程 poll 外层 future 时的栈。
+
+  bp:
+    当前栈帧基址。后续很多 hit 的 bp 都是 0x7fffffffcee0，说明仍在同一条 block_on 调用栈内反复 poll。
+
+  rdi:
+    这里不是标准意义上的 Pin<&mut Future> 入口参数，而是一个很有用的状态/路径相关指针。
+    gdb 读取该地址附近内存：
+
+      0x555556351ce0: 0x612f74757074756f 0x00005555636e7973
+
+    按小端序看，里面能看到 "output/a" 和 "sync"，也就是程序里的 output_dir = "output/async"。
+    因此这一处 rdi 可以对应到外层 future 内保存的 output_dir / create_dir_all 子 future 相关状态。
+
+  rsi:
+    0x7fffffffb018 是栈上的上下文附近地址。它不是 backtrace 里最稳定的 cx，但与当前 poll 上下文/临时包装有关。
+
+  rdx:
+    0xc 是十进制 12，正好是 "output/async" 的字节长度。
+    这进一步支持 rdi/rcx/rdx 正在参与构造或传递 output_dir 相关数据。
+
+  rcx:
+    0x636e7973612f7475 按小端序可以读出字节序列 "ut/async" 的一部分。
+    它也是 output_dir 字符串内容的一部分。
+
+  r8、r9:
+    这里更像临时寄存器。r9=0xc 同样可对应字符串长度 12。
+
+  _task_context:
+    0x7fffffffaff8 是 gdb 从 Rust async 状态机局部变量中还原出的 Context 指针。
+    backtrace 里也反复出现 cx=0x7fffffffaff8。
+    这是外层 collect/block_on 这一层最稳定的 Context 地址。
+
+程序变量对应：
+
+  tasks              -> Vec<CrawlTask>, 长度 33
+  output_dir         -> "output/async"
+  concurrency_limit  -> Some(1)
+  外层 Context       -> 0x7fffffffaff8
+  output_dir 内容    -> 0x555556351ce0 附近
+
+
+2. 同一个 await 的第二个机器位置
+
+命中 hit 2：
+
+  pc  = 0x5555559d9496
+  rdi = 0x7fffffffb120
+  rsi = 0x7fffffffb018
+  rdx = 0x7fffffffaff8
+  _task_context = 0x7fffffffaff8
+
+解释：
+
+  这是同一源码行的另一个 codegen location。
+  rdi=0x7fffffffb120 是栈上的 poll 包装/临时 frame 地址，不再是 hit 1 那种包含 "output/async" 的堆/状态区地址。
+  rdx=0x7fffffffaff8 直接等于 _task_context，说明这一处机器代码正在搬运或调用与 Context 相关的逻辑。
+
+程序变量对应：
+
+  rdx / _task_context -> 外层 poll Context
+  rdi                 -> 栈上的 poll wrapper，不宜直接当作业务变量
+
+
+3. 外层 create_dir_all.await 返回
+
+源码位置：
+
+  src/runner/download_async.rs:17
+  let total = tasks.len();
+
+命中 hit 3：
+
+  pc  = 0x5555559d96eb
+  rdi = 0x0
+  rsi = 0x5
+  _task_context = 0x7fffffffaff8
+
+解释：
+
+  这说明状态机已经从 line 16 的 await 恢复，继续执行 line 17。
+  rdi/rsi 此时已经不是 Future::poll 入口参数；它们只是恢复后的普通临时寄存器。
+  这里真正有意义的是控制流位置：从 await 点跳到了 await 后的下一句。
+
+程序变量对应：
+
+  tasks.len() 将得到 33。
+  _task_context 仍是外层 Context: 0x7fffffffaff8。
+
+
+4. per-task async block 到达 task.run_async_to(output).await
+
+源码位置：
+
+  src/runner/download_async.rs:25
+  let result = task.run_async_to(output).await;
+
+命中 hit 4：
+
+  pc  = 0x5555559d9fdb
+  sp  = 0x7fffffff92f0
+  bp  = 0x7fffffffcee0
+  rdi = 0x517
+  rsi = 0x555556355d10
+  rdx = 0x517
+  rcx = 0x21991d10
+  r8  = 0x2
+  r9  = 0x20
+  _task_context = 0x7fffffff9c70
+
+gdb 局部变量：
+
+  uni    = "北京大学"
+  url    = "http://www.pku.edu.cn/"
+  task   = CrawlTask { uni: "北京大学", url: "http://www.pku.edu.cn/" }
+  output = "output/async/北京大学.html"
+
+解释：
+
+  rdi=0x517、rdx=0x517:
+    这两个值不像合法用户态指针，更像编译器生成代码中的临时整数。
+    因此这里不要把 rdi 当作 future 指针。
+
+  rsi=0x555556355d10:
+    gdb 读取该地址附近能看到 per-task 捕获数据。
+    它与 task/output/url 这一组捕获变量有关。
+
+  _task_context=0x7fffffff9c70:
+    这是 per-task async block 这一层的 Context 地址。
+    它和外层 collect 的 cx=0x7fffffffaff8 不同，说明已经进入子 future 的 poll。
+
+程序变量对应：
+
+  task.uni       -> "北京大学"
+  task.url       -> "http://www.pku.edu.cn/"
+  output         -> "output/async/北京大学.html"
+  捕获变量区域   -> 0x555556355d10 附近
+  per-task Context -> 0x7fffffff9c70
+
+
+5. reqwest send().await 被 poll
+
+源码位置：
+
+  src/downloader/downloader_async.rs:13-14
+  .send().await?
+
+命中 hit 5：
+
+  pc  = 0x5555559df5c1
+  sp  = 0x7fffffff7020
+  bp  = 0x7fffffffcee0
+  rdi = 0x7fffffff8240
+  rsi = 0x7fffffff8350
+  rdx = 0x7fffffff8238
+  rcx = 0x7fffffff81a8
+  r8  = 0x1
+  r9  = 0x280
+  _task_context = 0x7fffffff9c70
+  url pointer = 0x555556355d28
+  output = "output/async/北京大学.html"
+
+解释：
+
+  这一层已经进入 downloader_async 的状态机。
+
+  rdi=0x7fffffff8240:
+    栈上的 downloader_async / reqwest send 子 future frame 候选地址。
+    这里存着 reqwest Client、RequestBuilder、请求状态等。
+
+  rsi=0x7fffffff8350:
+    同一片 send 子 future 或临时 poll frame 的相邻地址。
+    这次源码断点没有精确停在 poll 入口，所以 rsi 不一定就是 &mut Context。
+
+  rdx=0x7fffffff8238、rcx=0x7fffffff81a8:
+    也是栈上临时 frame/局部变量地址，属于 send().await 这段生成代码的工作区。
+
+  r8=0x1:
+    临时标志位，可能表示 Option/Result/状态判定位。
+
+  r9=0x280:
+    临时整数，不直接对应业务变量。
+
+程序变量对应：
+
+  client        -> reqwest::Client，gdb locals 能展开
+  url           -> 0x555556355d28 指向 task.url
+  output        -> "output/async/北京大学.html"
+  send 子状态机 -> 0x7fffffff8240 / 0x7fffffff8350 附近
+
+
+6. send().await Pending 时的重复 poll
+
+命中 hit 6 到 hit 18 多次回到：
+
+  src/runner/download_async.rs:25
+
+典型值：
+
+  pc  = 0x5555559d9efe
+  rdi = 0x7fffffff9c48
+  rsi = 0x555556355d10
+  rdx = 0x7fffffff9c70
+  _task_context = 0x7fffffff9c70
+
+解释：
+
+  这是最清楚的一段状态机切换：
+
+    outer collect.await
+      -> BufferUnordered::poll_next
+      -> FuturesUnordered::poll_next
+      -> per-task future
+      -> run_async_to future
+      -> downloader_async future
+      -> reqwest send future 返回 Pending
+
+  然后 Tokio 等 I/O readiness，waker 被触发后再回来 poll 同一条链。
+
+寄存器对应：
+
+  rdi=0x7fffffff9c48:
+    per-task future/frame 候选地址。
+    和 hit 4 的 rdi=0x517 不同，这里更像可读的栈上 future 状态地址。
+
+  rsi=0x555556355d10:
+    捕获变量区，里面有关 task/url/output 的内容。
+
+  rdx=0x7fffffff9c70:
+    等于 _task_context，说明这一段机器代码里第三参数或临时值正在携带 Context。
+
+程序变量对应：
+
+  per-task future frame -> 0x7fffffff9c48
+  per-task Context      -> 0x7fffffff9c70
+  task/output 捕获区    -> 0x555556355d10
+
+
+7. send().await 返回
+
+源码位置：
+
+  src/downloader/downloader_async.rs:15
+  .error_for_status()?
+
+命中 hit 19：
+
+  pc  = 0x5555559df91f
+  rdi = 0x7fffffff8a60
+  rsi = 0x7fffffff8a60
+  rdx = 0x88
+  rcx = 0x1
+
+解释：
+
+  这说明 reqwest send().await 已经完成，状态机从 await 点恢复，拿到了 Response，然后继续执行 error_for_status()。
+
+  rdi/rsi=0x7fffffff8a60:
+    指向恢复后的 Response / Result 临时存储区或 downloader_async frame 的一部分。
+
+  rdx=0x88:
+    很可能是某个结构体大小、偏移或临时长度，不直接对应业务变量。
+
+  rcx=0x1:
+    临时标志位，可能参与 Result/Option 分支判断。
+
+程序变量对应：
+
+  Response 已经从 send().await 产生。
+  后续将调用 error_for_status()，然后进入 bytes().await。
+
+
+8. response.bytes().await 被 poll
+
+源码位置：
+
+  src/downloader/downloader_async.rs:16-17
+  .bytes().await?
+
+命中 hit 20：
+
+  pc  = 0x5555559dfa0e
+  rdi = 0x7fffffff8ae8
+  rsi = 0x7fffffff8ae8
+  rdx = 0x88
+  rcx = 0x1
+  _task_context = 0x7fffffff9c70
+
+解释：
+
+  rdi/rsi=0x7fffffff8ae8:
+    bytes() 子 future 或其返回结果的临时 frame 候选地址。
+
+  rdx=0x88、rcx=0x1:
+    仍然是内部状态/分支辅助值。
+
+程序变量对应：
+
+  downloader_async 正在等待 response body 收齐。
+  per-task Context 仍然是 0x7fffffff9c70。
+
+
+9. bytes().await 返回
+
+源码位置：
+
+  src/downloader/downloader_async.rs:19
+  if let Some(parent) = output.as_ref().parent() {
+
+命中 hit 28：
+
+  pc  = 0x5555559dfc65
+  rdi = 0x555556355db8
+  rsi = 0x7fffffff8b80
+  rdx = 0x555556303788
+  rcx = 0x1
+
+gdb 局部变量：
+
+  bytes.ptr    = 0x55555642e850
+  bytes.len    = 110683
+  bytes.vtable = 0x555556303788 <bytes::bytes::PROMOTABLE_EVEN_VTABLE>
+  parent.inner = 0x555556355cf0
+
+解释：
+
+  这是一个非常好对应程序变量的位置。
+
+  rdi=0x555556355db8:
+    指向 downloader_async 状态机中与 output/bytes/parent 相关的保存区。
+
+  rsi=0x7fffffff8b80:
+    栈上的临时区域。
+
+  rdx=0x555556303788:
+    正好等于 bytes.vtable。
+    这能明确对应到程序变量 bytes 的 vtable 字段。
+
+  rcx=0x1:
+    Option 分支相关标志；这里 parent 存在，所以进入 if let Some(parent) 分支。
+
+程序变量对应：
+
+  bytes.ptr    -> 0x55555642e850
+  bytes.len    -> 110683
+  bytes.vtable -> 0x555556303788
+  parent.inner -> 0x555556355cf0
+
+
+10. 内部 create_dir_all(parent).await
+
+源码位置：
+
+  src/downloader/downloader_async.rs:20
+  tokio::fs::create_dir_all(parent).await?
+
+命中 hit 29：
+
+  pc  = 0x5555559dfd28
+  rdi = 0x7fffffff6ee0
+  rsi = 0x5555563524f0
+  rdx = 0xc
+  rcx = 0x0
+  r8  = 0x555556352409
+  r9  = 0x5
+
+gdb 局部变量：
+
+  parent.inner = 0x5555563524f0
+  bytes.ptr    = 0x55555642e850
+  bytes.len    = 110683
+
+解释：
+
+  rdi=0x7fffffff6ee0:
+    内部 fs create_dir_all 子 future 的栈上 frame 候选地址。
+
+  rsi=0x5555563524f0:
+    正好对应 parent.inner。
+    也就是 output/async/北京大学.html 的父目录 path。
+
+  rdx=0xc:
+    很可能是 parent 路径 "output/async" 的长度 12。
+
+  r8=0x555556352409、r9=0x5:
+    路径切片或子路径相关临时值。
+
+命中 hit 31，同一源码行另一个位置：
+
+  pc  = 0x5555559df2c5
+  rdi = 0x555556355db8
+  rsi = 0x7fffffff9c70
+  rdx = 0x7fffffff9c70
+  _task_context = 0x7fffffff9c70
+
+解释：
+
+  这次 rsi/rdx 都等于 _task_context。
+  说明代码从子 future poll/恢复路径回到 downloader_async 状态机时，又把 Context 带回来了。
+
+程序变量对应：
+
+  parent.inner        -> 0x5555563524f0
+  parent 路径长度     -> 0xc
+  downloader 状态区   -> 0x555556355db8
+  per-task Context    -> 0x7fffffff9c70
+
+
+11. tokio::fs::write(output, bytes).await
+
+源码位置：
+
+  src/downloader/downloader_async.rs:23
+  tokio::fs::write(output, bytes).await?
+
+命中 hit 33：
+
+  pc  = 0x5555559dfd43
+  rdi = 0x0
+  rsi = 0x0
+  rdx = 0x0
+  rcx = 0x0
+  r8  = 0xf0ea31f536557e0b
+  r9  = 0x110
+
+gdb 局部变量：
+
+  bytes.ptr    = 0x55555642e850
+  bytes.len    = 110683
+  bytes.vtable = 0x555556303788
+  output       = "output/async/北京大学.html"
+
+解释：
+
+  这个源码断点停在写文件 await 附近，但不是 poll 入口。
+  因此 rdi/rsi/rdx 都已经不是 future/context 参数，不能直接对应业务变量。
+  真正可靠的是 gdb 从状态机中恢复出来的 locals：
+
+    output
+    bytes.ptr
+    bytes.len
+    bytes.vtable
+
+程序变量对应：
+
+  output       -> "output/async/北京大学.html"
+  bytes.ptr    -> 0x55555642e850
+  bytes.len    -> 110683
+  bytes.vtable -> 0x555556303788
+
+
+六、地址到程序变量的总表
+------------------------
+
+外层 download_async_inner_with_tasks_limited 状态机：
+
+  0x7fffffffaff8
+    外层 poll Context。
+    backtrace 中多次出现 cx=0x7fffffffaff8。
+
+  0x555556351ce0
+    output_dir / create_dir_all 子状态相关区域。
+    内存里能读到 "output/async"。
+
+  0x7fffffffb120
+    外层 await 处的栈上 poll wrapper/frame。
+
+  tasks
+    Vec<CrawlTask>，长度 33。
+
+  output_dir
+    "output/async"。
+
+  concurrency_limit
+    Some(1)。
+
+
+per-task async block 状态机：
+
+  0x7fffffff9c70
+    per-task 层的 _task_context。
+
+  0x7fffffff9c48
+    per-task future/frame 候选地址。
+    hits 6-18 反复出现，说明同一个任务被重复 poll。
+
+  0x555556355d10
+    task/url/output 捕获变量区域。
+
+  0x555556355d28
+    downloader_async 中保存的 url 指针。
+
+  task.uni
+    "北京大学"。
+
+  task.url
+    "http://www.pku.edu.cn/"。
+
+  output
+    "output/async/北京大学.html"。
+
+
+downloader_async 状态机：
+
+  0x7fffffff8240 / 0x7fffffff8350
+    send().await 相关的子 future / 临时 frame。
+
+  0x7fffffff8a60
+    send().await 返回后的 Response/Result 临时区域。
+
+  0x7fffffff8ae8
+    bytes().await 子 future / 临时 frame。
+
+  0x555556355db8
+    bytes 返回后，downloader_async 中 output/bytes/parent 相关状态区。
+
+  0x55555642e850
+    bytes.ptr，也就是响应 body 数据缓冲区。
+
+  110683
+    bytes.len，本次抓到的响应体长度。
+
+  0x555556303788
+    bytes.vtable，gdb 显示为 bytes::bytes::PROMOTABLE_EVEN_VTABLE。
+
+  0x5555563524f0
+    parent.inner，内部 create_dir_all(parent) 使用的路径。
+
+
+七、waker 函数地址
+------------------
+
+源码断点能看到 Context 地址，但 gdb 没有自动把 core::task::Waker 的 RawWaker 字段完整解码出来。
+因此 waker 函数地址来自 target/debug/async 的 ELF 符号表，也就是 nm -C 的结果。
+
+FuturesUnordered 为每个子 future 包装 task node，并用下面这些函数构造 RawWaker/RawWakerVTable：
+
+  0x0000000000421130
+    futures_util::stream::futures_unordered::task::waker_ref::drop_arc_raw::<Task<...>>
+
+  0x0000000000421160
+    futures_util::stream::futures_unordered::task::waker_ref::wake_arc_raw::<Task<...>>
+
+  0x0000000000421190
+    futures_util::stream::futures_unordered::task::waker_ref::waker_vtable::<Task<...>>
+
+  0x00000000004211a0
+    futures_util::stream::futures_unordered::task::waker_ref::clone_arc_raw::<Task<...>>
+
+  0x0000000000421210
+    futures_util::stream::futures_unordered::task::waker_ref::wake_by_ref_arc_raw::<Task<...>>
+
+  0x00000000003f23a0
+    <futures_util::stream::futures_unordered::task::Task<...> as futures_task::arc_wake::ArcWake>::wake_by_ref
+
+  0x00000000003f2640
+    <futures_util::stream::futures_unordered::task::Task<...> as futures_task::arc_wake::ArcWake>::wake
+
+Tokio runtime park/unpark 相关：
+
+  0x0000000000bb4b50
+    <tokio::runtime::park::UnparkThread>::unpark
+
+  0x0000000000bb4d00
+    <tokio::runtime::park::UnparkThread>::into_waker
+
+意义：
+
+  当 reqwest 网络 I/O 或 tokio fs I/O 没准备好时，子 future 返回 Poll::Pending。
+  Pending 时会把当前 Waker 注册到 I/O 资源或内部队列中。
+  I/O ready 后，waker 调用 wake/wake_by_ref，把 FuturesUnordered 的子 task 放回 ready 队列。
+  Tokio runtime 再次 poll 外层 collect future，于是又走到：
+
+    collect.poll
+    -> BufferUnordered.poll_next
+    -> FuturesUnordered.poll_next
+    -> per-task future
+    -> downloader_async future
+
+
+八、这次寄存器值能和变量怎么对应
+--------------------------------
+
+可以比较可靠对应的：
+
+  rcx=0x636e7973612f7475
+    小端序包含 "ut/async"，对应 output_dir 字符串内容。
+
+  rdx=0xc 或 r9=0xc
+    对应 "output/async" 长度 12。
+
+  rdi=0x555556351ce0
+    对应外层 output_dir/create_dir_all 状态区，内存里有 "output/async"。
+
+  _task_context=0x7fffffffaff8
+    外层 poll Context。
+
+  _task_context=0x7fffffff9c70
+    per-task / downloader_async 层 Context。
+
+  rsi=0x555556355d10
+    per-task 捕获变量区，可对应 task/url/output。
+
+  rdi=0x7fffffff9c48
+    repeated poll 中的 per-task future/frame。
+
+  rdi/rsi=0x7fffffff8a60
+    send().await 返回后的 Response/Result 临时区。
+
+  rdi/rsi=0x7fffffff8ae8
+    bytes().await 子 future 或返回临时区。
+
+  rdx=0x555556303788
+    bytes.vtable。
+
+  rsi=0x5555563524f0
+    parent.inner。
+
+不能稳定一一对应的：
+
+  rdi=0x517
+    源码断点处的临时整数，不是 future 指针。
+
+  hit 3 的 rdi=0x0、rsi=0x5
+    await 恢复后的普通临时值。
+
+  hit 33 的 rdi/rsi/rdx=0x0
+    源码断点停在 write await 附近，但不是 poll ABI 入口，不能用寄存器判断变量。
+
+  r8/r9 中的大整数或看似随机值
+    多数是编译器临时值、状态判别、栈保护/哈希/中间对象的一部分。
+    除了像 0xc 这种能和字符串长度明确吻合的值，不强行对应业务变量。
+
+
+九、核心结论
+------------
+
+Rust async/await 在这里生成的是一组嵌套状态机：
+
+  外层下载调度状态机
+  -> collect/buffer_unordered/FuturesUnordered 状态机
+  -> per-task async move 状态机
+  -> CrawlTask::run_async_to 状态机
+  -> downloader_async 状态机
+  -> reqwest send / bytes / tokio fs 子状态机
+
+每个 await 的本质表现是：
+
+  1. 当前 future 把还要用的局部变量保存进自己的状态机 frame。
+  2. poll 子 future。
+  3. 子 future 如果 Pending，就返回给 runtime。
+  4. waker 被 I/O 事件触发后，runtime 再次 poll。
+  5. 状态机根据内部状态跳回 await 之后的源码位置继续执行。
+
+这次 gdb 跟踪里最清楚的状态切换是：
+
+  line 16 -> line 17
+    外层 create_dir_all.await 返回。
+
+  line 25 反复命中
+    per-task future 在 reqwest send/bytes 等待期间被多次 poll。
+
+  line 13-14 -> line 15
+    send().await 返回，拿到 Response。
+
+  line 16-17 -> line 19
+    bytes().await 返回，拿到 Bytes，能看到 ptr/len/vtable。
+
+  line 20
+    内部 create_dir_all(parent).await poll 和恢复。
+
+  line 23
+    write(output, bytes).await 使用已经保存好的 output 和 bytes。
+
+
+十、追加实验：并发 4 时观察一组状态机
+------------------------------------
+
+本节是在前面单并发分析之后追加的实验，不覆盖前面的记录。
+
+调试脚本改动：
+
+  set env SPIDER_CONCURRENCY 4
+  set logging file /tmp/spider_gdb_multi_raw.log
+
+这次只在一个位置下断点：
+
+  src/runner/download_async.rs:25
+  let result = task.run_async_to(output).await;
+
+原因：
+
+  这个位置是 FuturesUnordered 里的每个子 future 被 poll 到 task.run_async_to(output).await 的地方。
+  多开并发后，buffer_unordered(4) 会同时保留最多 4 个子 future。
+  因此这个断点最适合观察“一堆状态机”的存储地址和切换。
+
+原始日志：
+
+  /tmp/spider_gdb_multi_raw.log
+
+命中数量：
+
+  32 次 multi hit。
+
+
+1. 并发 4 初始化出的四个子状态机
+
+前四次命中分别对应前四个 CrawlTask：
+
+  multi hit 1
+    uni = "北京大学"
+    url = "http://www.pku.edu.cn/"
+    output = "output/async/北京大学.html"
+    rsi = 0x555556355d10
+    _task_context = 0x7fffffff9c90
+
+  multi hit 2
+    uni = "清华大学"
+    url = "http://www.tsinghua.edu.cn/"
+    output = "output/async/清华大学.html"
+    rsi = 0x555556353f10
+    _task_context = 0x7fffffff9c90
+
+  multi hit 3
+    uni = "中国人民大学"
+    url = "http://www.ruc.edu.cn/"
+    output = "output/async/中国人民大学.html"
+    rsi = 0x555556353b00
+    _task_context = 0x7fffffff9c90
+
+  multi hit 4
+    uni = "北京师范大学"
+    url = "http://www.bnu.edu.cn/"
+    output = "output/async/北京师范大学.html"
+    rsi = 0x555556340590
+    _task_context = 0x7fffffff9c90
+
+结论：
+
+  并发 4 时，FuturesUnordered 同时持有 4 个子 future。
+  每个子 future 都有一块不同的捕获变量/状态存储区。
+  这 4 个地址就是最直观的“多个状态机并存”的证据：
+
+    北京大学       -> 0x555556355d10
+    清华大学       -> 0x555556353f10
+    中国人民大学   -> 0x555556353b00
+    北京师范大学   -> 0x555556340590
+
+这些地址附近存储的是 async move 捕获进来的 task、url、output 等数据。
+
+
+2. 四个状态机的捕获区格式相似
+
+北京大学捕获区：
+
+  0x555556355d10: 0x000000000000000c 0x0000555556354f90
+  0x555556355d20: 0x000000000000000c 0x0000000000000016
+  0x555556355d30: 0x0000555556354d60 0x0000000000000016
+  0x555556355d40: 0x0000000000000030 0x00005555563524f0
+  0x555556355d50: 0x000000000000001e 0x000000000000000c
+
+清华大学捕获区：
+
+  0x555556353f10: 0x000000000000000c 0x0000555556354d80
+  0x555556353f20: 0x000000000000000c 0x000000000000001b
+  0x555556353f30: 0x0000555556340a80 0x000000000000001b
+  0x555556353f40: 0x0000000000000030 0x0000555556352530
+  0x555556353f50: 0x000000000000001e 0x000000000000000c
+
+中国人民大学捕获区：
+
+  0x555556353b00: 0x0000000000000012 0x0000555556354d20
+  0x555556353b10: 0x0000000000000012 0x0000000000000016
+  0x555556353b20: 0x0000555556354ac0 0x0000000000000016
+  0x555556353b30: 0x0000000000000030 0x00005555563525a0
+  0x555556353b40: 0x0000000000000024 0x0000000000000012
+
+北京师范大学捕获区：
+
+  0x555556340590: 0x0000000000000012 0x0000555556354e10
+  0x5555563405a0: 0x0000000000000012 0x0000000000000016
+  0x5555563405b0: 0x0000555556354c20 0x0000000000000016
+  0x5555563405c0: 0x0000000000000030 0x0000555556352610
+  0x5555563405d0: 0x0000000000000024 0x0000000000000012
+
+解释：
+
+  这些内存块结构高度相似，说明它们是同一种 async block 类型的不同实例。
+  不同任务的 uni/url/output 字符串长度不同，所以能看到 0x0c、0x12、0x16、0x1b、0x1e、0x24、0x30 这类长度/容量字段。
+
+可以和程序变量大致对应：
+
+  0x0c
+    12 字节，常见于 "output/async" 或较短字符串长度。
+
+  0x12
+    18 字节，和较长中文校名 UTF-8 字节数相关。
+
+  0x16
+    22 字节，常见于 URL 片段长度或 String 长度字段。
+
+  0x1b
+    27 字节，清华大学 URL "http://www.tsinghua.edu.cn/" 的长度。
+
+  0x1e
+    30 字节，输出路径中较短中文文件名场景的长度字段。
+
+  0x24
+    36 字节，输出路径中较长中文文件名场景的长度字段。
+
+  0x30
+    48 字节，PathBuf/String 分配容量或相关布局字段。
+
+由于 Rust String/PathBuf/async frame 的具体字段顺序由编译器和标准库布局决定，这里不强行逐字节标注每个字段，但可以明确判断：
+
+  每个 rsi 地址都是对应任务 async move 捕获变量的存储区。
+  其中包含 task.uni、task.url、output PathBuf，以及后续 run_async_to/downloader_async 所需的状态。
+
+
+3. 后续调度时，四个状态机轮换被 poll
+
+初始化后，后续 hit 不再只是一口气创建新任务，而是在已经存在的 4 个状态机之间切换。
+
+典型后续命中：
+
+  multi hit 5
+    uni = "清华大学"
+    rdi = 0x7fffffff9c68
+    rsi = 0x555556353f10
+    rdx = 0x7fffffff9c90
+
+  multi hit 6
+    uni = "北京师范大学"
+    rdi = 0x7fffffff9c68
+    rsi = 0x555556340590
+    rdx = 0x7fffffff9c90
+
+  multi hit 25
+    uni = "北京大学"
+    rdi = 0x7fffffff9c68
+    rsi = 0x555556355d10
+    rdx = 0x7fffffff9c90
+
+  multi hit 26
+    uni = "中国人民大学"
+    rdi = 0x7fffffff9c68
+    rsi = 0x555556353b00
+    rdx = 0x7fffffff9c90
+
+  multi hit 28
+    uni = "北京师范大学"
+    rdi = 0x7fffffff9c68
+    rsi = 0x555556340590
+    rdx = 0x7fffffff9c90
+
+  multi hit 29
+    uni = "清华大学"
+    rdi = 0x7fffffff9c68
+    rsi = 0x555556353f10
+    rdx = 0x7fffffff9c90
+
+  multi hit 30
+    uni = "中国人民大学"
+    rdi = 0x7fffffff9c68
+    rsi = 0x555556353b00
+    rdx = 0x7fffffff9c90
+
+  multi hit 32
+    uni = "北京大学"
+    rdi = 0x7fffffff9c68
+    rsi = 0x555556355d10
+    rdx = 0x7fffffff9c90
+
+寄存器含义：
+
+  rsi:
+    在后续 hit 中最关键。
+    它在四个捕获区地址之间轮换：
+
+      0x555556355d10
+      0x555556353f10
+      0x555556353b00
+      0x555556340590
+
+    这说明当前被 poll 的是哪个任务的 async block。
+
+  rdi:
+    后续稳定为 0x7fffffff9c68。
+    这更像当前 poll 过程中栈上的 per-task frame / poll 临时 frame。
+    注意它不是某个特定任务独有的堆上状态区，因为不同任务被 poll 时 rdi 都一样。
+    它代表“当前这一次 poll 调用的栈上工作区”。
+
+  rdx:
+    后续稳定为 0x7fffffff9c90。
+    与 _task_context 一致。
+    它是当前 per-task poll 的 Context 地址。
+
+  rcx:
+    后续常见为 0x2e6b51。
+    这是生成代码中的稳定临时值，不直接对应业务变量。
+
+  r8/r9:
+    多数是临时值或调度/状态判断中的辅助值。
+    这次不强行对应到业务变量。
+
+
+4. FuturesUnordered 层的共享上下文
+
+backtrace 中稳定出现：
+
+  FuturesUnordered::poll_next(..., cx=0x7fffffffb018)
+  BufferUnordered::poll_next(..., cx=0x7fffffffb018)
+  Collect::poll(..., cx=0x7fffffffb018)
+
+这说明：
+
+  collect/buffer_unordered/FuturesUnordered 这一层共享同一个外层 Context：
+
+    0x7fffffffb018
+
+而每个子任务在 gdb locals 中看到：
+
+  _task_context = 0x7fffffff9c90
+
+可以理解为：
+
+  0x7fffffffb018
+    外层 stream/collect 被 Tokio runtime poll 时传入的 Context。
+
+  0x7fffffff9c90
+    当前子 future poll 过程中使用的 task context / 局部 Context 表示。
+
+二者不是四个任务各自独立一份的堆对象；真正区分四个任务的是 rsi 指向的捕获状态区。
+
+
+5. 多并发下的状态存储模型
+
+结合这次并发 4 观察，可以把状态存储分成三层：
+
+  外层调度 future：
+    保存 tasks、output_dir、concurrency_limit，以及 collect/buffer_unordered 的状态。
+
+  FuturesUnordered/BufferUnordered：
+    同时保存 4 个子 future。
+    每个子 future 是同一种 async block 类型的一个实例。
+
+  每个子 future 的捕获状态区：
+    北京大学       -> 0x555556355d10
+    清华大学       -> 0x555556353f10
+    中国人民大学   -> 0x555556353b00
+    北京师范大学   -> 0x555556340590
+
+当某个任务的 reqwest/tokio I/O 返回 Pending 时，它自己的状态仍留在对应捕获区/子 future 中。
+runtime 被 waker 唤醒后，FuturesUnordered 再从 ready 队列中挑一个子 future poll。
+所以后续日志中会看到 rsi 在四个地址之间跳来跳去。
+
+
+6. 这个实验相比单并发新增的结论
+
+单并发时，我们只能看到一个子 future 的状态反复保存和恢复。
+
+并发 4 时，可以明确看到：
+
+  1. 同一种 async block 状态机可以同时存在多个实例。
+  2. 每个实例都有不同的捕获变量存储地址。
+  3. 外层 poll 栈和 Context 可以复用，但 rsi 指向的捕获区不同，代表当前被 poll 的任务不同。
+  4. FuturesUnordered 正是通过保存这些子 future 实例，并借助 waker/ready queue，在它们之间调度切换。
+
+这就是多并发 async 程序里“一堆状态机”的实际内存表现。
