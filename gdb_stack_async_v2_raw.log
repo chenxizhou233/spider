@@ -1,0 +1,32 @@
+Breakpoint 1 at 0x3e3cc1: src/runner/download_async.rs:25. (3 locations)
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/usr/lib/x86_64-linux-gnu/libthread_db.so.1".
+
+=== async stack VMA snapshot at download_async.rs:25 ===
+method: switch each gdb thread, read $rsp, find containing VMA in /proc/<pid>/maps
+  Id   Target Id                                           Frame 
+* 1    Thread 0x7ffff7c86d00 (LWP 19013) "async"           spider::runner::download_async::download_async_inner_with_tasks_limited::{async_fn#0}::{closure#0}::{async_block#0}<&str> () at src/runner/download_async.rs:25
+  2    Thread 0x7ffff7c856c0 (LWP 19033) "async"           __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  3    Thread 0x7ffff7a846c0 (LWP 19034) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  4    Thread 0x7ffff78836c0 (LWP 19035) "tokio-rt-worker" syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  5    Thread 0x7ffff76826c0 (LWP 19036) "tokio-rt-worker" syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  6    Thread 0x7ffff74816c0 (LWP 19037) "tokio-rt-worker" syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  7    Thread 0x7ffff72806c0 (LWP 19038) "tokio-rt-worker" syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+gdb inferior pid=19013
+gdb thread count=7
+thread#1 tid=19013 rsp=0x7fffffff92e0 stack_vma=0x7ffffffdd000-0x7ffffffff000 size_bytes=139264 size_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#2 tid=19033 rsp=0x7ffff7c847b8 stack_vma=0x7ffff7a86000-0x7ffff7c88000 size_bytes=2105344 size_kib=2056.0
+  7ffff7a86000-7ffff7c88000 rw-p 00000000 00:00 0
+thread#3 tid=19034 rsp=0x7ffff7a81fe8 stack_vma=0x7ffff7885000-0x7ffff7a85000 size_bytes=2097152 size_kib=2048.0
+  7ffff7885000-7ffff7a85000 rw-p 00000000 00:00 0
+thread#4 tid=19035 rsp=0x7ffff7880e88 stack_vma=0x7ffff7684000-0x7ffff7884000 size_bytes=2097152 size_kib=2048.0
+  7ffff7684000-7ffff7884000 rw-p 00000000 00:00 0
+thread#5 tid=19036 rsp=0x7ffff767fe88 stack_vma=0x7ffff7483000-0x7ffff7683000 size_bytes=2097152 size_kib=2048.0
+  7ffff7483000-7ffff7683000 rw-p 00000000 00:00 0
+thread#6 tid=19037 rsp=0x7ffff747ee88 stack_vma=0x7ffff7282000-0x7ffff7482000 size_bytes=2097152 size_kib=2048.0
+  7ffff7282000-7ffff7482000 rw-p 00000000 00:00 0
+thread#7 tid=19038 rsp=0x7ffff727efe8 stack_vma=0x7ffff7081000-0x7ffff7281000 size_bytes=2097152 size_kib=2048.0
+  7ffff7081000-7ffff7281000 rw-p 00000000 00:00 0
+SUMMARY model=async gdb_threads=7 unique_stack_vmas=7 mapped_stack_bytes_by_rsp=12730368 mapped_stack_mib_by_rsp=12.141
+[Inferior 1 (process 19013) detached]

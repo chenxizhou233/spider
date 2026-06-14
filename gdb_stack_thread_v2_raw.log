@@ -1,0 +1,167 @@
+Breakpoint 1 at 0x400784: file src/runner/download_thread.rs, line 33.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/usr/lib/x86_64-linux-gnu/libthread_db.so.1".
+
+=== thread stack VMA snapshot at download_thread.rs:33 ===
+method: switch each gdb thread, read $rsp, find containing VMA in /proc/<pid>/maps
+  Id   Target Id                                           Frame 
+* 1    Thread 0x7ffff7c86d00 (LWP 18946) "thread"          spider::runner::download_thread::download_thread_with_tasks_limited<&str> (tasks=Vec(size=33) = {...}, output_dir="output/thread", concurrency_limit=...) at src/runner/download_thread.rs:33
+  2    Thread 0x7ffff7c856c0 (LWP 18952) "thread"          __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  3    Thread 0x7ffff7a846c0 (LWP 18953) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  4    Thread 0x7ffff78836c0 (LWP 18954) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  5    Thread 0x7ffff76826c0 (LWP 18955) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  6    Thread 0x7ffff72806c0 (LWP 18957) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  7    Thread 0x7ffff74816c0 (LWP 18956) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  8    Thread 0x7ffff707f6c0 (LWP 18958) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  9    Thread 0x7ffff6e7e6c0 (LWP 18959) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  10   Thread 0x7ffff6a7c6c0 (LWP 18961) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  11   Thread 0x7ffff6c7d6c0 (LWP 18960) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  12   Thread 0x7ffff687b6c0 (LWP 18962) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  13   Thread 0x7ffff66746c0 (LWP 18963) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  14   Thread 0x7ffff64736c0 (LWP 18964) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  15   Thread 0x7ffff626f6c0 (LWP 18965) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  16   Thread 0x7ffff606b6c0 (LWP 18966) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  17   Thread 0x7ffff5e646c0 (LWP 18967) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  18   Thread 0x7ffff5c636c0 (LWP 18968) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  19   Thread 0x7ffff5a5f6c0 (LWP 18969) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  20   Thread 0x7ffff585e6c0 (LWP 18970) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  21   Thread 0x7ffff56576c0 (LWP 18971) "reqwest-interna" futex_wait (futex_word=0x7fffa0000030, expected=2, private=0) at ../sysdeps/nptl/futex-internal.h:146
+  22   Thread 0x7ffff54566c0 (LWP 18972) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  23   Thread 0x7ffff52526c0 (LWP 18973) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  24   Thread 0x7ffff4e476c0 (LWP 18975) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  25   Thread 0x7ffff504e6c0 (LWP 18974) "reqwest-interna" futex_wait (futex_word=0x7fff98000030, expected=2, private=0) at ../sysdeps/nptl/futex-internal.h:146
+  26   Thread 0x7ffff4a426c0 (LWP 18977) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  27   Thread 0x7ffff4c436c0 (LWP 18976) "reqwest-interna" futex_wait (futex_word=0x7fff8c000030, expected=2, private=0) at ../sysdeps/nptl/futex-internal.h:146
+  28   Thread 0x7ffff483b6c0 (LWP 18978) "tokio-rt-worker" syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  29   Thread 0x7ffff46376c0 (LWP 18979) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  30   Thread 0x7ffff42326c0 (LWP 18980) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  31   Thread 0x7fff83dfe6c0 (LWP 18982) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  32   Thread 0x7fff83fff6c0 (LWP 18981) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  33   Thread 0x7ffff44336c0 (LWP 18983) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  34   Thread 0x7fff839fc6c0 (LWP 18985) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  35   Thread 0x7fff83bfd6c0 (LWP 18984) "reqwest-interna" 0x00007ffff7d98a67 in __GI_mprotect () at ../sysdeps/unix/syscall-template.S:117
+  36   Thread 0x7fff835fa6c0 (LWP 18987) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  37   Thread 0x7fff833f96c0 (LWP 18988) "tokio-rt-worker" 0x00007ffff7d9d4f7 in __GI_bind () at ../sysdeps/unix/syscall-template.S:120
+  38   Thread 0x7fff831f86c0 (LWP 18990) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  39   Thread 0x7fff837fb6c0 (LWP 18986) "reqwest-interna" 0x00007ffff7d98a67 in __GI_mprotect () at ../sysdeps/unix/syscall-template.S:117
+  40   Thread 0x7fff82ff76c0 (LWP 18989) "reqwest-interna" 0x00007ffff7d98a67 in __GI_mprotect () at ../sysdeps/unix/syscall-template.S:117
+  41   Thread 0x7fff823d36c0 (LWP 18998) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  42   Thread 0x7fff81bcf6c0 (LWP 19000) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  43   Thread 0x7fff821d26c0 (LWP 18999) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  44   Thread 0x7fff81dd06c0 (LWP 18997) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  45   Thread 0x7fff82dd86c0 (LWP 18991) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  46   Thread 0x7fff827d56c0 (LWP 18994) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  47   Thread 0x7fff82bd76c0 (LWP 18992) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  48   Thread 0x7fff81fd16c0 (LWP 18995) "reqwest-interna" 0x0000555555fcb6de in rustls_pki_types::pem::read_until_newline::{closure#0}<dyn std::io::BufRead> (b=70) at src/pem.rs:544
+  49   Thread 0x7fff825d46c0 (LWP 18996) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  50   Thread 0x7fff829d66c0 (LWP 18993) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  51   Thread 0x7fff819ce6c0 (LWP 19001) "reqwest-interna" core::ops::control_flow::{impl#0}::branch<usize, ()> (self=...) at /home/chenxizhou233/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/control_flow.rs:117
+  52   Thread 0x7fff817cd6c0 (LWP 19002) "thread"          __GI___clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:62
+gdb inferior pid=18946
+gdb thread count=52
+thread#1 tid=18946 rsp=0x7fffffffbab0 stack_vma=0x7ffffffdd000-0x7ffffffff000 size_bytes=139264 size_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#2 tid=18952 rsp=0x7ffff7c847b8 stack_vma=0x7ffff7a86000-0x7ffff7c88000 size_bytes=2105344 size_kib=2056.0
+  7ffff7a86000-7ffff7c88000 rw-p 00000000 00:00 0
+thread#3 tid=18953 rsp=0x7ffff7a80288 stack_vma=0x7ffff7885000-0x7ffff7a85000 size_bytes=2097152 size_kib=2048.0
+  7ffff7885000-7ffff7a85000 rw-p 00000000 00:00 0
+thread#4 tid=18954 rsp=0x7ffff787c2e8 stack_vma=0x7ffff7684000-0x7ffff7884000 size_bytes=2097152 size_kib=2048.0
+  7ffff7684000-7ffff7884000 rw-p 00000000 00:00 0
+thread#5 tid=18955 rsp=0x7ffff767e288 stack_vma=0x7ffff7483000-0x7ffff7683000 size_bytes=2097152 size_kib=2048.0
+  7ffff7483000-7ffff7683000 rw-p 00000000 00:00 0
+thread#6 tid=18957 rsp=0x7ffff727c288 stack_vma=0x7ffff7081000-0x7ffff7281000 size_bytes=2097152 size_kib=2048.0
+  7ffff7081000-7ffff7281000 rw-p 00000000 00:00 0
+thread#7 tid=18956 rsp=0x7ffff747a2e8 stack_vma=0x7ffff7282000-0x7ffff7482000 size_bytes=2097152 size_kib=2048.0
+  7ffff7282000-7ffff7482000 rw-p 00000000 00:00 0
+thread#8 tid=18958 rsp=0x7ffff707b288 stack_vma=0x7ffff6e80000-0x7ffff7080000 size_bytes=2097152 size_kib=2048.0
+  7ffff6e80000-7ffff7080000 rw-p 00000000 00:00 0
+thread#9 tid=18959 rsp=0x7ffff6e772e8 stack_vma=0x7ffff6c7f000-0x7ffff6e7f000 size_bytes=2097152 size_kib=2048.0
+  7ffff6c7f000-7ffff6e7f000 rw-p 00000000 00:00 0
+thread#10 tid=18961 rsp=0x7ffff6a752e8 stack_vma=0x7ffff687d000-0x7ffff6a7d000 size_bytes=2097152 size_kib=2048.0
+  7ffff687d000-7ffff6a7d000 rw-p 00000000 00:00 0
+thread#11 tid=18960 rsp=0x7ffff6c79288 stack_vma=0x7ffff6a7e000-0x7ffff6c7e000 size_bytes=2097152 size_kib=2048.0
+  7ffff6a7e000-7ffff6c7e000 rw-p 00000000 00:00 0
+thread#12 tid=18962 rsp=0x7ffff68742e8 stack_vma=0x7ffff667c000-0x7ffff687c000 size_bytes=2097152 size_kib=2048.0
+  7ffff667c000-7ffff687c000 rw-p 00000000 00:00 0
+thread#13 tid=18963 rsp=0x7ffff6670288 stack_vma=0x7ffff6475000-0x7ffff6675000 size_bytes=2097152 size_kib=2048.0
+  7ffff6475000-7ffff6675000 rw-p 00000000 00:00 0
+thread#14 tid=18964 rsp=0x7ffff646f288 stack_vma=0x7ffff6274000-0x7ffff6474000 size_bytes=2097152 size_kib=2048.0
+  7ffff6274000-7ffff6474000 rw-p 00000000 00:00 0
+thread#15 tid=18965 rsp=0x7ffff62682e8 stack_vma=0x7ffff6070000-0x7ffff6270000 size_bytes=2097152 size_kib=2048.0
+  7ffff6070000-7ffff6270000 rw-p 00000000 00:00 0
+thread#16 tid=18966 rsp=0x7ffff60642e8 stack_vma=0x7ffff5e6c000-0x7ffff606c000 size_bytes=2097152 size_kib=2048.0
+  7ffff5e6c000-7ffff606c000 rw-p 00000000 00:00 0
+thread#17 tid=18967 rsp=0x7ffff5e60288 stack_vma=0x7ffff5c65000-0x7ffff5e65000 size_bytes=2097152 size_kib=2048.0
+  7ffff5c65000-7ffff5e65000 rw-p 00000000 00:00 0
+thread#18 tid=18968 rsp=0x7ffff5c5f288 stack_vma=0x7ffff5a64000-0x7ffff5c64000 size_bytes=2097152 size_kib=2048.0
+  7ffff5a64000-7ffff5c64000 rw-p 00000000 00:00 0
+thread#19 tid=18969 rsp=0x7ffff5a582e8 stack_vma=0x7ffff5860000-0x7ffff5a60000 size_bytes=2097152 size_kib=2048.0
+  7ffff5860000-7ffff5a60000 rw-p 00000000 00:00 0
+thread#20 tid=18970 rsp=0x7ffff585aaa8 stack_vma=0x7ffff565f000-0x7ffff585f000 size_bytes=2097152 size_kib=2048.0
+  7ffff565f000-7ffff585f000 rw-p 00000000 00:00 0
+thread#21 tid=18971 rsp=0x7ffff564a888 stack_vma=0x7ffff5458000-0x7ffff5658000 size_bytes=2097152 size_kib=2048.0
+  7ffff5458000-7ffff5658000 rw-p 00000000 00:00 0
+thread#22 tid=18972 rsp=0x7ffff5452aa8 stack_vma=0x7ffff5257000-0x7ffff5457000 size_bytes=2097152 size_kib=2048.0
+  7ffff5257000-7ffff5457000 rw-p 00000000 00:00 0
+thread#23 tid=18973 rsp=0x7ffff524b2e8 stack_vma=0x7ffff5053000-0x7ffff5253000 size_bytes=2097152 size_kib=2048.0
+  7ffff5053000-7ffff5253000 rw-p 00000000 00:00 0
+thread#24 tid=18975 rsp=0x7ffff4e43aa8 stack_vma=0x7ffff4c48000-0x7ffff4e48000 size_bytes=2097152 size_kib=2048.0
+  7ffff4c48000-7ffff4e48000 rw-p 00000000 00:00 0
+thread#25 tid=18974 rsp=0x7ffff5042088 stack_vma=0x7ffff4e4f000-0x7ffff504f000 size_bytes=2097152 size_kib=2048.0
+  7ffff4e4f000-7ffff504f000 rw-p 00000000 00:00 0
+thread#26 tid=18977 rsp=0x7ffff4a3eaa8 stack_vma=0x7ffff4843000-0x7ffff4a43000 size_bytes=2097152 size_kib=2048.0
+  7ffff4843000-7ffff4a43000 rw-p 00000000 00:00 0
+thread#27 tid=18976 rsp=0x7ffff4c36ef8 stack_vma=0x7ffff4a44000-0x7ffff4c44000 size_bytes=2097152 size_kib=2048.0
+  7ffff4a44000-7ffff4c44000 rw-p 00000000 00:00 0
+thread#28 tid=18978 rsp=0x7ffff4839fe8 stack_vma=0x7ffff463c000-0x7ffff483c000 size_bytes=2097152 size_kib=2048.0
+  7ffff463c000-7ffff483c000 rw-p 00000000 00:00 0
+thread#29 tid=18979 rsp=0x7ffff4633288 stack_vma=0x7ffff4438000-0x7ffff4638000 size_bytes=2097152 size_kib=2048.0
+  7ffff4438000-7ffff4638000 rw-p 00000000 00:00 0
+thread#30 tid=18980 rsp=0x7ffff422e288 stack_vma=0x7ffff4033000-0x7ffff4233000 size_bytes=2097152 size_kib=2048.0
+  7ffff4033000-7ffff4233000 rw-p 00000000 00:00 0
+thread#31 tid=18982 rsp=0x7fff83dfaaa8 stack_vma=0x7fff83bff000-0x7fff83dff000 size_bytes=2097152 size_kib=2048.0
+  7fff83bff000-7fff83dff000 rw-p 00000000 00:00 0
+thread#32 tid=18981 rsp=0x7fff83ff82e8 stack_vma=0x7fff83e00000-0x7fff84021000 size_bytes=2232320 size_kib=2180.0
+  7fff83e00000-7fff84021000 rw-p 00000000 00:00 0
+thread#33 tid=18983 rsp=0x7ffff442c2e8 stack_vma=0x7ffff4234000-0x7ffff4434000 size_bytes=2097152 size_kib=2048.0
+  7ffff4234000-7ffff4434000 rw-p 00000000 00:00 0
+thread#34 tid=18985 rsp=0x7fff839f8aa8 stack_vma=0x7fff837fd000-0x7fff839fd000 size_bytes=2097152 size_kib=2048.0
+  7fff837fd000-7fff839fd000 rw-p 00000000 00:00 0
+thread#35 tid=18984 rsp=0x7fff83bf07b8 stack_vma=0x7fff839fe000-0x7fff83bfe000 size_bytes=2097152 size_kib=2048.0
+  7fff839fe000-7fff83bfe000 rw-p 00000000 00:00 0
+thread#36 tid=18987 rsp=0x7fff835f6aa8 stack_vma=0x7fff833fb000-0x7fff835fb000 size_bytes=2097152 size_kib=2048.0
+  7fff833fb000-7fff835fb000 rw-p 00000000 00:00 0
+thread#37 tid=18988 rsp=0x7fff833f6ea8 stack_vma=0x7fff831fa000-0x7fff833fa000 size_bytes=2097152 size_kib=2048.0
+  7fff831fa000-7fff833fa000 rw-p 00000000 00:00 0
+thread#38 tid=18990 rsp=0x7fff831f4568 stack_vma=0x7fff82ff9000-0x7fff831f9000 size_bytes=2097152 size_kib=2048.0
+  7fff82ff9000-7fff831f9000 rw-p 00000000 00:00 0
+thread#39 tid=18986 rsp=0x7fff837eebb8 stack_vma=0x7fff835fc000-0x7fff837fc000 size_bytes=2097152 size_kib=2048.0
+  7fff835fc000-7fff837fc000 rw-p 00000000 00:00 0
+thread#40 tid=18989 rsp=0x7fff82feabb8 stack_vma=0x7fff82df8000-0x7fff82ff8000 size_bytes=2097152 size_kib=2048.0
+  7fff82df8000-7fff82ff8000 rw-p 00000000 00:00 0
+thread#41 tid=18998 rsp=0x7fff823cf568 stack_vma=0x7fff821d4000-0x7fff823d4000 size_bytes=2097152 size_kib=2048.0
+  7fff821d4000-7fff823d4000 rw-p 00000000 00:00 0
+thread#42 tid=19000 rsp=0x7fff81bcb568 stack_vma=0x7fff819d0000-0x7fff81bd0000 size_bytes=2097152 size_kib=2048.0
+  7fff819d0000-7fff81bd0000 rw-p 00000000 00:00 0
+thread#43 tid=18999 rsp=0x7fff821ce568 stack_vma=0x7fff81fd3000-0x7fff821d3000 size_bytes=2097152 size_kib=2048.0
+  7fff81fd3000-7fff821d3000 rw-p 00000000 00:00 0
+thread#44 tid=18997 rsp=0x7fff81dcc568 stack_vma=0x7fff81bd1000-0x7fff81dd1000 size_bytes=2097152 size_kib=2048.0
+  7fff81bd1000-7fff81dd1000 rw-p 00000000 00:00 0
+thread#45 tid=18991 rsp=0x7fff82dd4568 stack_vma=0x7fff82bd9000-0x7fff82dd9000 size_bytes=2097152 size_kib=2048.0
+  7fff82bd9000-7fff82dd9000 rw-p 00000000 00:00 0
+thread#46 tid=18994 rsp=0x7fff827d1568 stack_vma=0x7fff825d6000-0x7fff827d6000 size_bytes=2097152 size_kib=2048.0
+  7fff825d6000-7fff827d6000 rw-p 00000000 00:00 0
+thread#47 tid=18992 rsp=0x7fff82bd3aa8 stack_vma=0x7fff829d8000-0x7fff82bd8000 size_bytes=2097152 size_kib=2048.0
+  7fff829d8000-7fff82bd8000 rw-p 00000000 00:00 0
+thread#48 tid=18995 rsp=0x7fff81fc5038 stack_vma=0x7fff81dd2000-0x7fff81fd2000 size_bytes=2097152 size_kib=2048.0
+  7fff81dd2000-7fff81fd2000 rw-p 00000000 00:00 0
+thread#49 tid=18996 rsp=0x7fff825d0568 stack_vma=0x7fff823d5000-0x7fff825d5000 size_bytes=2097152 size_kib=2048.0
+  7fff823d5000-7fff825d5000 rw-p 00000000 00:00 0
+thread#50 tid=18993 rsp=0x7fff829d2568 stack_vma=0x7fff827d7000-0x7fff829d7000 size_bytes=2097152 size_kib=2048.0
+  7fff827d7000-7fff829d7000 rw-p 00000000 00:00 0
+thread#51 tid=19001 rsp=0x7fff819c20a8 stack_vma=0x7fff817cf000-0x7fff819cf000 size_bytes=2097152 size_kib=2048.0
+  7fff817cf000-7fff819cf000 rw-p 00000000 00:00 0
+thread#52 tid=19002 rsp=0x7fff817c7ae8 stack_vma=0x7fff815ce000-0x7fff817ce000 size_bytes=2097152 size_kib=2048.0
+  7fff815ce000-7fff817ce000 rw-p 00000000 00:00 0
+SUMMARY model=thread gdb_threads=52 unique_stack_vmas=52 mapped_stack_bytes_by_rsp=107237376 mapped_stack_mib_by_rsp=102.270
+[Inferior 1 (process 18946) detached]

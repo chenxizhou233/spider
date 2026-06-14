@@ -1,0 +1,146 @@
+Breakpoint 1 at 0x400784: file src/runner/download_thread.rs, line 33.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/usr/lib/x86_64-linux-gnu/libthread_db.so.1".
+
+=== thread stack snapshot at download_thread.rs:33 ===
+active worker threads should have just been spawned
+  Id   Target Id                                           Frame 
+* 1    Thread 0x7ffff7c86d00 (LWP 18598) "thread"          spider::runner::download_thread::download_thread_with_tasks_limited<&str> (tasks=Vec(size=33) = {...}, output_dir="output/thread", concurrency_limit=...) at src/runner/download_thread.rs:33
+  2    Thread 0x7ffff7c856c0 (LWP 18611) "thread"          __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  3    Thread 0x7ffff7a846c0 (LWP 18612) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  4    Thread 0x7ffff78836c0 (LWP 18613) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  5    Thread 0x7ffff76826c0 (LWP 18614) "reqwest-interna" 0x0000555555fd3b9f in rustls_pki_types::base64::CodePoint::decode_public (a=83) at src/base64.rs:482
+  6    Thread 0x7ffff72806c0 (LWP 18616) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  7    Thread 0x7ffff74816c0 (LWP 18615) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  8    Thread 0x7ffff707f6c0 (LWP 18617) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  9    Thread 0x7ffff6e7e6c0 (LWP 18618) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  10   Thread 0x7ffff6c7d6c0 (LWP 18619) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  11   Thread 0x7ffff6a7c6c0 (LWP 18620) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  12   Thread 0x7ffff687b6c0 (LWP 18621) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  13   Thread 0x7ffff667a6c0 (LWP 18622) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  14   Thread 0x7ffff626f6c0 (LWP 18624) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  15   Thread 0x7ffff64706c0 (LWP 18623) "reqwest-interna" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  16   Thread 0x7ffff606b6c0 (LWP 18625) "reqwest-interna" core::iter::adapters::copied::{impl#1}::next<core::slice::iter::Iter<u8>, u8> (self=0x7ffff605e7c8) at /home/chenxizhou233/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/iter/adapters/copied.rs:52
+  17   Thread 0x7ffff5e6a6c0 (LWP 18626) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  18   Thread 0x7ffff5c606c0 (LWP 18627) "reqwest-interna" __GI___clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:62
+  19   Thread 0x7ffff5a5f6c0 (LWP 18628) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  20   Thread 0x7ffff58586c0 (LWP 18629) "reqwest-interna" 0x0000555555fcb715 in core::iter::adapters::copied::copy_try_fold::{closure#0}<u8, (), core::ops::control_flow::ControlFlow<usize, ()>, core::iter::traits::iterator::Iterator::position::check::{closure_env#0}<u8, rustls_pki_types::pem::read_until_newline::{closure_env#0}<dyn std::io::BufRead>>> (acc=()) at /home/chenxizhou233/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/iter/adapters/copied.rs:40
+  21   Thread 0x7ffff56546c0 (LWP 18630) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  22   Thread 0x7ffff524f6c0 (LWP 18633) "reqwest-interna" 0x0000555555fcb6c8 in rustls_pki_types::pem::read_until_newline::{closure#0}<dyn std::io::BufRead> (b=115) at src/pem.rs:544
+  23   Thread 0x7ffff54536c0 (LWP 18632) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  24   Thread 0x7ffff504e6c0 (LWP 18634) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  25   Thread 0x7ffff4c466c0 (LWP 18635) "reqwest-interna" __GI___lll_lock_wake (futex=futex@entry=0x7ffff7ffd708 <_rtld_global+1800>, private=<optimized out>) at ./nptl/lowlevellock.c:64
+  26   Thread 0x7ffff4a456c0 (LWP 18637) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  27   Thread 0x7ffff4e476c0 (LWP 18636) "reqwest-interna" rustls_pki_types::base64::decode<fn(u8) -> rustls_pki_types::base64::CodePoint> (input=&[u8](size=1150) = {...}, output=&mut [u8](size=864) = {...}, decode_byte=0x1cd46aad228000) at src/base64.rs:83
+  28   Thread 0x7ffff483b6c0 (LWP 18638) "reqwest-interna" rustls_pki_types::base64::decode<fn(u8) -> rustls_pki_types::base64::CodePoint> (input=&[u8](size=1926) = {...}, output=&mut [u8](size=1446) = {...}, decode_byte=0x3010000000000) at src/base64.rs:83
+  29   Thread 0x7ffff46346c0 (LWP 18639) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  30   Thread 0x7ffff44306c0 (LWP 18640) "reqwest-interna" __libc_malloc2 (bytes=1856) at ./malloc/malloc.c:3456
+  31   Thread 0x7fffe7fff6c0 (LWP 18642) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  32   Thread 0x7ffff422f6c0 (LWP 18641) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  33   Thread 0x7fffe7dfe6c0 (LWP 18643) "reqwest-interna" 0x0000555555b24bda in reqwest::blocking::client::{impl#9}::new::{closure#0}::{async_block#0} () at src/blocking/client.rs:1383
+  34   Thread 0x7fffe7bfd6c0 (LWP 18644) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  35   Thread 0x7fffe77fb6c0 (LWP 18646) "thread"          syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  36   Thread 0x7fffe79fc6c0 (LWP 18645) "reqwest-interna" core::slice::iter::{impl#171}::next<u8> (self=0x7fffe79f0290) at /home/chenxizhou233/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/iter/macros.rs:192
+  37   Thread 0x7fffe71f86c0 (LWP 18648) "thread"          futex_wait (futex_word=0x7ffff7ffd708 <_rtld_global+1800>, expected=2, private=0) at ../sysdeps/nptl/futex-internal.h:146
+  38   Thread 0x7fffe75fa6c0 (LWP 18647) "reqwest-interna" rustls_pki_types::base64::decode<fn(u8) -> rustls_pki_types::base64::CodePoint> (input=&[u8](size=2718) = {...}, output=&mut [u8](size=2040) = {...}, decode_byte=0x8c1e3fbd300000) at src/base64.rs:83
+  39   Thread 0x7fffe6df66c0 (LWP 18651) "reqwest-interna" 0x0000555556147797 in tokio::runtime::driver::Driver::new (cfg=...) at src/runtime/driver.rs:47
+  40   Thread 0x7fffe6ff76c0 (LWP 18650) "thread"          futex_wait (futex_word=0x7ffff7ffd708 <_rtld_global+1800>, expected=2, private=0) at ../sysdeps/nptl/futex-internal.h:146
+  41   Thread 0x7fffe73f96c0 (LWP 18649) "tokio-rt-worker" futex_wait (futex_word=0x7ffff7ffd708 <_rtld_global+1800>, expected=2, private=0) at ../sysdeps/nptl/futex-internal.h:146
+  42   Thread 0x7fffe6bd76c0 (LWP 18652) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  43   Thread 0x7fffe69d66c0 (LWP 18653) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  44   Thread 0x7fffe65d46c0 (LWP 18655) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  45   Thread 0x7fffe67d56c0 (LWP 18654) "thread"          __GI___clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:62
+gdb inferior pid=18598
+gdb thread count=45
+thread#1 tid=18598 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#2 tid=18611 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#3 tid=18612 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#4 tid=18613 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#5 tid=18614 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#6 tid=18616 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#7 tid=18615 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#8 tid=18617 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#9 tid=18618 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#10 tid=18619 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#11 tid=18620 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#12 tid=18621 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#13 tid=18622 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#14 tid=18624 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#15 tid=18623 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#16 tid=18625 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#17 tid=18626 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#18 tid=18627 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#19 tid=18628 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#20 tid=18629 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#21 tid=18630 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#22 tid=18633 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#23 tid=18632 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#24 tid=18634 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#25 tid=18635 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#26 tid=18637 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#27 tid=18636 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#28 tid=18638 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#29 tid=18639 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#30 tid=18640 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#31 tid=18642 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#32 tid=18641 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#33 tid=18643 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#34 tid=18644 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#35 tid=18646 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#36 tid=18645 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#37 tid=18648 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#38 tid=18647 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#39 tid=18651 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#40 tid=18650 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#41 tid=18649 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#42 tid=18652 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#43 tid=18653 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#44 tid=18655 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#45 tid=18654 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+SUMMARY model=thread gdb_threads=45 stack_maps=45 mapped_stack_bytes=6266880 mapped_stack_mib=5.977 largest_stack_kib=136.0
+[Inferior 1 (process 18598) detached]

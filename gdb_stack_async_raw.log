@@ -1,0 +1,32 @@
+Breakpoint 1 at 0x3e3cc1: src/runner/download_async.rs:25. (3 locations)
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/usr/lib/x86_64-linux-gnu/libthread_db.so.1".
+
+=== async stack snapshot at download_async.rs:25 ===
+a Tokio child future is being polled
+  Id   Target Id                                           Frame 
+* 1    Thread 0x7ffff7c86d00 (LWP 18533) "async"           spider::runner::download_async::download_async_inner_with_tasks_limited::{async_fn#0}::{closure#0}::{async_block#0}<&str> () at src/runner/download_async.rs:25
+  2    Thread 0x7ffff7c856c0 (LWP 18573) "async"           __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  3    Thread 0x7ffff7a846c0 (LWP 18574) "tokio-rt-worker" __syscall_cancel_arch () at ../sysdeps/unix/sysv/linux/x86_64/syscall_cancel.S:56
+  4    Thread 0x7ffff78836c0 (LWP 18575) "tokio-rt-worker" syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  5    Thread 0x7ffff76826c0 (LWP 18576) "tokio-rt-worker" syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  6    Thread 0x7ffff74816c0 (LWP 18577) "tokio-rt-worker" syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+  7    Thread 0x7ffff72806c0 (LWP 18578) "tokio-rt-worker" syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+gdb inferior pid=18533
+gdb thread count=7
+thread#1 tid=18533 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#2 tid=18573 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#3 tid=18574 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#4 tid=18575 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#5 tid=18576 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#6 tid=18577 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+thread#7 tid=18578 stack_maps=1 stack_bytes=139264 stack_kib=136.0
+  7ffffffdd000-7ffffffff000 rw-p 00000000 00:00 0                          [stack]
+SUMMARY model=async gdb_threads=7 stack_maps=7 mapped_stack_bytes=974848 mapped_stack_mib=0.930 largest_stack_kib=136.0
+[Inferior 1 (process 18533) detached]
