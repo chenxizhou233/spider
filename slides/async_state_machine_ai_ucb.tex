@@ -42,6 +42,9 @@
   \titlepage
 \end{frame}
 
+\section{研究动机}
+\subsection{问题意识}
+
 \begin{frame}{问题意识}
   \begin{block}{目标}
     不只让异步爬虫能运行，而是解释 \texttt{async/await} 在运行时如何保存状态、返回 \texttt{Pending}、被 \texttt{Waker} 唤醒并继续执行。
@@ -54,6 +57,8 @@
     \item 核心挑战：把高层抽象还原为可观察的机器状态
   \end{itemize}
 \end{frame}
+
+\subsection{技术路线}
 
 \begin{frame}{整体技术路径}
   \centering
@@ -71,6 +76,9 @@
   \end{alertblock}
 \end{frame}
 
+\section{实验采集}
+\subsection{原始数据}
+
 \begin{frame}[fragile]{第一步：获得原始数据}
   \begin{lstlisting}[language=bash]
 cargo build --bin async
@@ -84,6 +92,8 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
     \item 原始输出保存为 GDB 日志，再整理为中文分析版
   \end{itemize}
 \end{frame}
+
+\subsection{断点设计}
 
 \begin{frame}{断点设计}
   \begin{tabular}{>{\ttfamily}p{0.43\linewidth}p{0.47\linewidth}}
@@ -104,6 +114,9 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
     断点尽量卡在 await 前后，让日志呈现“保存状态 -> Pending -> 唤醒 -> 恢复”的切换过程。
   \end{block}
 \end{frame}
+
+\section{AI 分析}
+\subsection{分析流程}
 
 \begin{frame}{第二步：AI 辅助分析}
   \begin{columns}[T,totalwidth=\textwidth]
@@ -130,6 +143,8 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
   \end{alertblock}
 \end{frame}
 
+\subsection{证据链}
+
 \begin{frame}{证据链示例}
   \begin{tabular}{>{\ttfamily}p{0.26\linewidth}p{0.62\linewidth}}
     \toprule
@@ -149,6 +164,8 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
   \end{block}
 \end{frame}
 
+\subsection{人工校验}
+
 \begin{frame}{第三步：人工提炼与校验}
   \begin{itemize}
     \item 稳定事实：反复出现、能和 backtrace 或内存内容相互印证
@@ -161,6 +178,9 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
     AI 容易把所有值都解释完整；但系统调试需要保留“不知道”，否则会把临时值包装成错误结论。
   \end{alertblock}
 \end{frame}
+
+\section{状态机结论}
+\subsection{嵌套结构}
 
 \begin{frame}[fragile]{核心结论：嵌套状态机}
   \begin{lstlisting}
@@ -180,6 +200,8 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
   \end{itemize}
 \end{frame}
 
+\subsection{单并发}
+
 \begin{frame}{单并发观察}
   \begin{itemize}
     \item line 16 $\rightarrow$ line 17：外层 create\_dir\_all.await 返回
@@ -193,6 +215,8 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
     单并发适合观察一个状态机的保存、Pending、唤醒和恢复。
   \end{block}
 \end{frame}
+
+\subsection{并发 4}
 
 \begin{frame}{并发 4 观察}
   \begin{tabular}{>{\raggedright\arraybackslash}p{0.30\linewidth}>{\ttfamily}p{0.42\linewidth}}
@@ -214,6 +238,9 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
   \end{itemize}
 \end{frame}
 
+\section{方法反思}
+\subsection{可解释性}
+
 \begin{frame}{可解释性来自哪里}
   \begin{enumerate}
     \item 命令可复现：构建命令、GDB 脚本、并发参数明确
@@ -222,6 +249,8 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
     \item 不确定性可保留：不能稳定对应的值不写成确定结论
   \end{enumerate}
 \end{frame}
+
+\subsection{AI 使用}
 
 \begin{frame}{如何更好地使用 AI}
   \begin{itemize}
@@ -237,6 +266,8 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
     AI 的价值不是替代推理，而是把推理过程显性化、结构化、可复查。
   \end{alertblock}
 \end{frame}
+
+\subsection{总结}
 
 \begin{frame}{总结}
   \begin{block}{技术收获}
