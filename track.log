@@ -10,16 +10,16 @@ Tokio 异步状态机动态跟踪分析
 
 调试命令：
 
-  timeout 35s rust-gdb -q target/debug/async -x gdb_track.gdb
+  timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
 
 说明：
 
-  gdb_track.gdb 保留在仓库根目录，便于复现实验或继续增加断点。
-  gdb_track.gdb 当前是默认脚本，内容对应 gdb_track_v2_multi4.gdb。
-  gdb_track_v1_single.gdb 是单并发完整 await 切换跟踪版本。
-  gdb_track_v2_multi4.gdb 是并发 4 多状态机存储观察版本。
+  gdb 脚本统一保留在 gdb_scripts/，便于复现实验或继续增加断点。
+  gdb_scripts/gdb_track.gdb 当前是默认脚本，内容对应 gdb_scripts/gdb_track_v2_multi4.gdb。
+  gdb_scripts/gdb_track_v1_single.gdb 是单并发完整 await 切换跟踪版本。
+  gdb_scripts/gdb_track_v2_multi4.gdb 是并发 4 多状态机存储观察版本。
   gdb 脚本内部设置了 SPIDER_CONCURRENCY=1，让 async 版本一次只推进一个下载任务，便于观察第一个任务的状态机。
-  gdb 原始日志输出到 /tmp/spider_gdb_raw.log。
+  gdb 原始日志输出到 logs/spider_gdb_raw.log。
   本文件是根据原始日志整理后的中文分析版，不是 gdb 原样输出。
 
 版本和入口：
@@ -845,7 +845,7 @@ Rust async/await 在这里生成的是一组嵌套状态机：
 调试脚本改动：
 
   set env SPIDER_CONCURRENCY 4
-  set logging file /tmp/spider_gdb_multi_raw.log
+  set logging file logs/spider_gdb_multi_raw.log
 
 这次只在一个位置下断点：
 
@@ -860,7 +860,7 @@ Rust async/await 在这里生成的是一组嵌套状态机：
 
 原始日志：
 
-  /tmp/spider_gdb_multi_raw.log
+  logs/spider_gdb_multi_raw.log
 
 命中数量：
 

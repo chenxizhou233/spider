@@ -2,14 +2,14 @@ set pagination off
 set confirm off
 set print thread-events off
 set environment SPIDER_CONCURRENCY=20
-set logging file gdb_stack_async_v2_raw.log
+set logging file logs/gdb_stack_thread_v2_raw.log
 set logging overwrite on
 set logging enabled on
 
-break src/runner/download_async.rs:25
+break src/runner/download_thread.rs:33
 commands
   silent
-  printf "\n=== async stack VMA snapshot at download_async.rs:25 ===\n"
+  printf "\n=== thread stack VMA snapshot at download_thread.rs:33 ===\n"
   printf "method: switch each gdb thread, read $rsp, find containing VMA in /proc/<pid>/maps\n"
   info threads
   python
@@ -48,7 +48,7 @@ print(f"gdb thread count={len(inferior.threads())}")
 for num, tid, rsp, start, end, size, line in rows:
     print(f"thread#{num} tid={tid} rsp=0x{rsp:x} stack_vma=0x{start:x}-0x{end:x} size_bytes={size} size_kib={size/1024:.1f}")
     print(f"  {line}")
-print(f"SUMMARY model=async gdb_threads={len(inferior.threads())} unique_stack_vmas={len(unique)} mapped_stack_bytes_by_rsp={total} mapped_stack_mib_by_rsp={total/1024/1024:.3f}")
+print(f"SUMMARY model=thread gdb_threads={len(inferior.threads())} unique_stack_vmas={len(unique)} mapped_stack_bytes_by_rsp={total} mapped_stack_mib_by_rsp={total/1024/1024:.3f}")
   end
   detach
   quit

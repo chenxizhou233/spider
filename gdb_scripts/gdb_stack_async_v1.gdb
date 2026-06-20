@@ -2,7 +2,7 @@ set pagination off
 set confirm off
 set print thread-events off
 set environment SPIDER_CONCURRENCY=20
-set logging file gdb_stack_async_raw.log
+set logging file logs/gdb_stack_async_raw.log
 set logging overwrite on
 set logging enabled on
 

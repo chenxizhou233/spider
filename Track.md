@@ -2,11 +2,65 @@
 
 完整动态跟踪记录见 `track.log`，可复现实验脚本包括：
 
-- `gdb_track_v1_single.gdb`：单并发，跟踪主要 `await` 的 poll / resume 流程。
-- `gdb_track_v2_multi4.gdb`：并发 4，观察多个子 future 状态机的存储和轮换。
-- `gdb_track.gdb`：当前默认脚本，内容对应并发 4 版本。
-- `gdb_stack_thread_v2.gdb`：thread 版栈 VMA 测量，原始输出见 `gdb_stack_thread_v2_raw.log`。
-- `gdb_stack_async_v2.gdb`：Tokio 版栈 VMA 测量，原始输出见 `gdb_stack_async_v2_raw.log`。
+- `gdb_scripts/gdb_track_v1_single.gdb`：单并发，跟踪主要 `await` 的 poll / resume 流程，原始输出见 `logs/spider_gdb_raw.log`。
+- `gdb_scripts/gdb_track_v2_multi4.gdb`：并发 4，观察多个子 future 状态机的存储和轮换，原始输出见 `logs/spider_gdb_multi_raw.log`。
+- `gdb_scripts/gdb_track.gdb`：当前默认脚本，内容对应并发 4 版本。
+- `gdb_scripts/gdb_stack_thread_v2.gdb`：thread 版栈 VMA 测量，原始输出见 `logs/gdb_stack_thread_v2_raw.log`。
+- `gdb_scripts/gdb_stack_async_v2.gdb`：Tokio 版栈 VMA 测量，原始输出见 `logs/gdb_stack_async_v2_raw.log`。
+
+### MIR 状态机的实验入口
+
+本报告不只按“Rust async 会被编译成状态机”这个理论来解释，而是先看 gdb 实际打印出的状态机名字。`gdb_scripts/gdb_track_v1_single.gdb` 生成的 `logs/spider_gdb_raw.log` 中，第一次命中 `download_async.rs:16` 时，backtrace 第 4 帧直接显示外层 async future 处在 `Unresumed` 状态：
+
+```text
+raw log line 24:
+download_async_inner_with_tasks_limited::{async_fn_env#0}<&str>::Unresumed {
+  tasks: Vec(size=33),
+  output_dir: "output/async",
+  concurrency_limit: Some(1)
+}
+```
+
+同一次命中里，locals 又显示了源码变量：
+
+```text
+raw log lines 29-34:
+output_dir = "output/async"
+concurrency_limit = Some(1)
+tasks = Vec(size=33)
+```
+
+所以这里能由实验直接得到两点：第一，`async fn` 在 gdb 里不是显示成普通阻塞函数调用，而是显示成 `async_fn_env#0` 这种 future 环境；第二，future 环境里确实保存了跨 `await` 还要继续使用的 `tasks`、`output_dir` 和 `concurrency_limit`。
+
+更内层的下载 future 也能看到类似结构。第 29 次命中 `download_async.rs:25` 时，locals 显示：
+
+```text
+raw log lines 31815-31816:
+__awaitee =
+  run_async_to::{async_fn_env#0}<PathBuf>::Suspend0 {
+    __awaitee:
+      downloader_async::{async_fn_env#0}<PathBuf>::Suspend2 {
+        output: "output/async/北京大学.html",
+        ...
+      }
+  }
+```
+
+第 29 次命中的后半段继续显示：
+
+```text
+raw log lines 32620-32633:
+bytes = Bytes { ptr: 0x55555642e850, len: 110683, ... }
+__awaitee = tokio::fs::create_dir_all::{async_fn_env#0}::Suspend0 { ... }
+
+raw log lines 32661-32669:
+url = "http://www.pku.edu.cn/"
+uni = "北京大学"
+_task_context = 0x7fffffff9c60
+output = "output/async/北京大学.html"
+```
+
+这组数据支持的结论是：`Suspend0`、`Suspend2`、`__awaitee` 不是本文人为命名的概念，而是 gdb 从编译产物调试信息里还原出来的状态；`bytes`、`url`、`uni`、`output` 这些跨 `await` 仍要使用的值，也确实出现在对应 future 的 locals 中。后文所有关于“状态机 frame 保存跨 await 变量”的说法，都以这些 gdb locals 为实验依据。具体地址会随每次运行变化，所以本文只用地址判断“是否落在同一类状态区”，不把某个绝对地址当作固定事实。
 
 ### 调用链和状态机层次
 
@@ -37,6 +91,48 @@ Runtime::block_on
 - `downloader_async.rs:20` 和 `23`：分别对应内部建目录和写文件的异步 fs future。
 
 这说明 `await` 的本质是：当前 future 把后续还需要的局部变量保存到自己的状态机 frame，poll 子 future；如果返回 `Pending`，runtime 暂停该任务；waker 被 I/O 事件触发后，runtime 再次 poll，并按状态跳回 `await` 之后继续执行。
+
+#### 从 v1 single raw log 读状态机
+
+`gdb_scripts/gdb_track_v1_single.gdb` 重新生成的 `logs/spider_gdb_raw.log` 里，单并发链路一共记录了 32 次源码断点命中。虽然脚本名叫 single，但 `tasks` 仍然是完整的 33 个 crawl task；single 指的是 `SPIDER_CONCURRENCY=1`，也就是 `buffer_unordered` 一次只让一个下载子 future 活跃。
+
+第一次进入外层 future 时，gdb 能在 backtrace 参数里看到：
+
+```text
+download_async_inner_with_tasks_limited::{async_fn_env#0}<&str>::Unresumed {
+  tasks: Vec(size=33),
+  output_dir: "output/async",
+  concurrency_limit: Some(1)
+}
+```
+
+这正对应“async fn 被编译成 future frame，但还没有真正跑过”的初始状态。进入下载子任务后，locals 里会出现更具体的暂停状态，例如：
+
+```text
+run_async_to::{async_fn_env#0}<PathBuf>::Suspend0 {
+  __awaitee: downloader_async::{async_fn_env#0}<PathBuf>::Suspend2 {
+    output: "output/async/北京大学.html",
+    bytes: Bytes { ... },
+    __awaitee: tokio::fs::create_dir_all::{async_fn_env#0}::Suspend0 { ... }
+  }
+}
+```
+
+这段信息很有价值：它不是源码里手写出来的结构，而是 gdb 根据编译器生成的 async 状态机还原出的调试视图。`run_async_to` 自己停在 `Suspend0`，因为它正在等待内部的 `downloader_async(...) .await`；`downloader_async` 停在 `Suspend2`，说明它已经越过了前面的 `send().await` 和 `bytes().await`，现在正持有 `bytes` 并等待内部的 `create_dir_all(parent).await`。
+
+同一份 raw log 后面还能看到：
+
+```text
+bytes = bytes::bytes::Bytes {
+  ptr: ...,
+  len: 110683,
+  vtable: 0x555556303788 <bytes::bytes::PROMOTABLE_EVEN_VTABLE>
+}
+output = "output/async/北京大学.html"
+_task_context = 0x7fffffff9c60
+```
+
+这把理论和现场连起来了：`bytes` 和 `output` 在 `bytes().await` 之后、`write(output, bytes).await` 之前仍然要用，所以它们被保存在 `downloader_async` 的 future frame 中；`_task_context` 则是这一次 poll 时传进来的 `Context`，用于把 waker 继续传给内部的 reqwest/tokio fs 子 future。
 
 #### 带寄存器的切换例子 1：`send().await` 从网络 I/O 回到 per-task future
 
@@ -283,8 +379,8 @@ RUST_MIN_STACK 未设置
 为了避免只靠默认值估算，后面又用 `rust-gdb` 做了一次现场测量。使用的脚本是：
 
 ```text
-gdb_stack_thread_v2.gdb
-gdb_stack_async_v2.gdb
+gdb_scripts/gdb_stack_thread_v2.gdb
+gdb_scripts/gdb_stack_async_v2.gdb
 ```
 
 脚本逻辑是：在 gdb 里暂停程序，遍历 `info threads` 中的每个线程，切换到该线程后读取 `$rsp`，再到 `/proc/<pid>/maps` 里找到包含这个 `$rsp` 的 VMA。这样得到的是“当前线程栈指针实际落在哪一段栈映射里”，比单纯 grep `[stack]` 更可靠。

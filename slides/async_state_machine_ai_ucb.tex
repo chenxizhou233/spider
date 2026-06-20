@@ -1,0 +1,255 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+\usetheme{Berkeley}
+
+\usepackage{ctex}
+\usepackage{fontspec}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usepackage{listings}
+
+\definecolor{UCBBlue}{HTML}{003262}
+\definecolor{UCBGold}{HTML}{FDB515}
+\definecolor{UCBFoundersRock}{HTML}{3B7EA1}
+\definecolor{UCBMedalist}{HTML}{C4820E}
+\definecolor{UCBGray}{HTML}{F5F5F5}
+
+\setbeamertemplate{navigation symbols}{}
+
+\setmainfont{TeX Gyre Heros}
+\setsansfont{TeX Gyre Heros}
+\setmonofont{DejaVu Sans Mono}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{UCBBlue},
+  commentstyle=\color{UCBFoundersRock},
+  breaklines=true,
+  columns=fullflexible,
+  frame=single,
+  rulecolor=\color{UCBFoundersRock}
+}
+
+\title[AI 辅助异步状态机跟踪]{一种基于 AI 辅助的 Tokio 异步状态机动态跟踪分析}
+\subtitle{从 GDB 原始日志到可解释报告}
+\author{陈玺州}
+\date{2026 年春夏开源操作系统训练营}
+
+\begin{document}
+
+\begin{frame}[plain]
+  \titlepage
+\end{frame}
+
+\begin{frame}{问题意识}
+  \begin{block}{目标}
+    不只让异步爬虫能运行，而是解释 \texttt{async/await} 在运行时如何保存状态、返回 \texttt{Pending}、被 \texttt{Waker} 唤醒并继续执行。
+  \end{block}
+
+  \vspace{0.4em}
+  \begin{itemize}
+    \item 表层代码只是几个 \texttt{.await}
+    \item 底层行为涉及 future frame、寄存器、栈帧、捕获变量区和 runtime 调度
+    \item 核心挑战：把高层抽象还原为可观察的机器状态
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{整体技术路径}
+  \centering
+  \begin{tikzpicture}[node distance=1.1cm, every node/.style={font=\large}]
+    \node[draw=UCBBlue, thick, rounded corners, fill=UCBGray, minimum width=3.2cm, minimum height=1.0cm] (raw) {1. 获得原始数据};
+    \node[draw=UCBFoundersRock, thick, rounded corners, fill=UCBGray, minimum width=3.2cm, minimum height=1.0cm, right=of raw] (ai) {2. AI 辅助分析};
+    \node[draw=UCBMedalist, thick, rounded corners, fill=UCBGray, minimum width=3.2cm, minimum height=1.0cm, right=of ai] (report) {3. 总结提炼};
+    \draw[->, very thick, color=UCBBlue] (raw) -- (ai);
+    \draw[->, very thick, color=UCBBlue] (ai) -- (report);
+  \end{tikzpicture}
+
+  \vspace{1.0em}
+  \begin{alertblock}{核心优点}
+    暴露 AI 得出结果的路径：每个结论都可以回溯到命令、断点、日志、寄存器、内存地址和调用栈。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{第一步：获得原始数据}
+  \begin{lstlisting}[language=bash]
+cargo build --bin async
+timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
+  \end{lstlisting}
+
+  \begin{itemize}
+    \item 使用 dev profile，保留 debuginfo
+    \item 先限制 \texttt{SPIDER\_CONCURRENCY=1}，观察单个状态机的完整生命周期
+    \item 再追加 \texttt{SPIDER\_CONCURRENCY=4}，观察多个状态机实例并存
+    \item 原始输出保存为 GDB 日志，再整理为中文分析版
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{断点设计}
+  \begin{tabular}{>{\ttfamily}p{0.43\linewidth}p{0.47\linewidth}}
+    \toprule
+    位置 & 观察目标 \\
+    \midrule
+    download\_async.rs:16 & 外层 create\_dir\_all.await \\
+    download\_async.rs:25 & 每个 task 的 async block \\
+    downloader\_async.rs:13--14 & reqwest send().await \\
+    downloader\_async.rs:16--17 & response.bytes().await \\
+    downloader\_async.rs:20 & 内部 create\_dir\_all(parent).await \\
+    downloader\_async.rs:23 & tokio::fs::write(output, bytes).await \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.8em}
+  \begin{block}{设计原则}
+    断点尽量卡在 await 前后，让日志呈现“保存状态 -> Pending -> 唤醒 -> 恢复”的切换过程。
+  \end{block}
+\end{frame}
+
+\begin{frame}{第二步：AI 辅助分析}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.32\textwidth}
+      \begin{block}{结构化}
+        按源码位置、状态机层级、寄存器和 backtrace 归类日志。
+      \end{block}
+    \end{column}
+    \begin{column}{0.32\textwidth}
+      \begin{block}{生成假设}
+        基于 ABI、\texttt{Future::poll} 形态和内存内容推断地址含义。
+      \end{block}
+    \end{column}
+    \begin{column}{0.32\textwidth}
+      \begin{block}{证据对照}
+        要求每个结论说明来自哪条日志、哪个地址或哪个变量。
+      \end{block}
+    \end{column}
+  \end{columns}
+
+  \vspace{0.8em}
+  \begin{alertblock}{使用原则}
+    AI 不直接给最终裁决，而是帮助整理证据链、发现重复模式、标注不确定性。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{证据链示例}
+  \begin{tabular}{>{\ttfamily}p{0.26\linewidth}p{0.62\linewidth}}
+    \toprule
+    观察值 & 解释依据 \\
+    \midrule
+    rdx = 0xc & 对应 "output/async" 的 12 字节长度 \\
+    rcx = 0x636e...7475 & 小端序能读出 "ut/async" 片段 \\
+    0x555556351ce0 & 附近内存包含 "output/async" \\
+    0x7fffffffaff8 & backtrace 中多次作为外层 cx 出现 \\
+    0x555556355d10 & per-task 捕获区，包含 task/url/output \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.8em}
+  \begin{block}{关键点}
+    不是“AI 说它是什么”，而是“日志中的哪些事实支持这个判断”。
+  \end{block}
+\end{frame}
+
+\begin{frame}{第三步：人工提炼与校验}
+  \begin{itemize}
+    \item 稳定事实：反复出现、能和 backtrace 或内存内容相互印证
+    \item 临时现象：源码行断点处的编译器临时值，不强行解释
+    \item 结论边界：明确哪些地址能对应变量，哪些寄存器不能稳定解读
+  \end{itemize}
+
+  \vspace{0.6em}
+  \begin{alertblock}{底层分析里的危险}
+    AI 容易把所有值都解释完整；但系统调试需要保留“不知道”，否则会把临时值包装成错误结论。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{核心结论：嵌套状态机}
+  \begin{lstlisting}
+外层下载调度状态机
+  -> collect / buffer_unordered / FuturesUnordered
+  -> per-task async move 状态机
+  -> CrawlTask::run_async_to 状态机
+  -> downloader_async 状态机
+  -> reqwest send / bytes / tokio fs 子状态机
+  \end{lstlisting}
+
+  \begin{itemize}
+    \item 每个 await 把后续要用的局部变量保存到 future frame
+    \item 子 future Pending 后，控制权返回 runtime
+    \item I/O ready 后，Waker 触发 runtime 再次 poll
+    \item 状态机跳回 await 后的源码位置继续执行
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{单并发观察}
+  \begin{itemize}
+    \item line 16 $\rightarrow$ line 17：外层 create\_dir\_all.await 返回
+    \item line 25 反复命中：同一个 per-task future 被多次 poll
+    \item line 13--14 $\rightarrow$ line 15：send().await 返回 Response
+    \item line 16--17 $\rightarrow$ line 19：bytes().await 返回 Bytes
+    \item line 23：write(output, bytes).await 使用已保存的状态
+  \end{itemize}
+
+  \begin{block}{结论}
+    单并发适合观察一个状态机的保存、Pending、唤醒和恢复。
+  \end{block}
+\end{frame}
+
+\begin{frame}{并发 4 观察}
+  \begin{tabular}{>{\raggedright\arraybackslash}p{0.30\linewidth}>{\ttfamily}p{0.42\linewidth}}
+    \toprule
+    任务 & 捕获变量区地址 \\
+    \midrule
+    北京大学 & 0x555556355d10 \\
+    清华大学 & 0x555556353f10 \\
+    中国人民大学 & 0x555556353b00 \\
+    北京师范大学 & 0x555556340590 \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.8em}
+  \begin{itemize}
+    \item 同一种 async block 类型可以同时有多个实例
+    \item 后续日志中 \texttt{rsi} 在四个地址之间轮换
+    \item \texttt{FuturesUnordered} 保存子 future，并借助 waker/ready queue 调度
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{可解释性来自哪里}
+  \begin{enumerate}
+    \item 命令可复现：构建命令、GDB 脚本、并发参数明确
+    \item 证据可追踪：结论能回到断点、寄存器、内存和 backtrace
+    \item AI 路径可暴露：结构化、假设、证据对照、人工校验分层清楚
+    \item 不确定性可保留：不能稳定对应的值不写成确定结论
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{如何更好地使用 AI}
+  \begin{itemize}
+    \item 先给原始数据，再要求分析
+    \item 把大问题拆成可验证的小问题
+    \item 要求输出证据链，而不是只输出结论
+    \item 主动标注不确定性和反例
+    \item 最终报告由人收束，保证问题意识和结论边界
+  \end{itemize}
+
+  \vspace{0.7em}
+  \begin{alertblock}{一句话}
+    AI 的价值不是替代推理，而是把推理过程显性化、结构化、可复查。
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{总结}
+  \begin{block}{技术收获}
+    看清了 Tokio 异步程序中“一堆状态机”在内存和调度上的实际表现。
+  \end{block}
+
+  \begin{block}{方法收获}
+    建立了从原始日志到 AI 辅助分析，再到人工提炼报告的可解释工作流。
+  \end{block}
+
+  \begin{alertblock}{训练营后的理解}
+    系统软件里真正有价值的结论，不是听起来合理，而是能被日志、代码和机器状态共同支撑。
+  \end{alertblock}
+\end{frame}
+
+\end{document}

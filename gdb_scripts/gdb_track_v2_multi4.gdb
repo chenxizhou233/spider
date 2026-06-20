@@ -4,7 +4,7 @@ set pagination off
 set confirm off
 set print pretty on
 set print frame-arguments all
-set logging file /tmp/spider_gdb_multi_raw.log
+set logging file logs/spider_gdb_multi_raw.log
 set logging overwrite on
 set logging enabled on
 set env SPIDER_CONCURRENCY 4

@@ -66,11 +66,11 @@ SPIDER_CONCURRENCY=10 cargo run --bin process
 
 ## Tokio Async State Machine Trace Notes
 
-The full dynamic trace is in `track.log`. The reproducible GDB scripts are:
+The full dynamic trace is in `track.log`. The reproducible GDB scripts are under `gdb_scripts/`, and raw GDB logs are under `logs/`:
 
-- `gdb_track_v1_single.gdb`: single-concurrency trace for the main `await` poll/resume transitions.
-- `gdb_track_v2_multi4.gdb`: concurrency-4 trace for observing multiple child future state machines.
-- `gdb_track.gdb`: current default script, matching the concurrency-4 version.
+- `gdb_scripts/gdb_track_v1_single.gdb`: single-concurrency trace for the main `await` poll/resume transitions.
+- `gdb_scripts/gdb_track_v2_multi4.gdb`: concurrency-4 trace for observing multiple child future state machines.
+- `gdb_scripts/gdb_track.gdb`: current default script, matching the concurrency-4 version.
 
 ### Call Chain And State Machine Layers
 
