@@ -1,7 +1,7 @@
 \documentclass[aspectratio=169,11pt]{beamer}
-\usetheme{Berkeley}
+\usetheme[hideothersubsections=true]{Berkeley}
 
-\usepackage{ctex}
+\usepackage[fontset=fandol]{ctex}
 \usepackage{fontspec}
 \usepackage{booktabs}
 \usepackage{array}
@@ -17,9 +17,9 @@
 
 \setbeamertemplate{navigation symbols}{}
 
-\setmainfont{TeX Gyre Heros}
-\setsansfont{TeX Gyre Heros}
-\setmonofont{DejaVu Sans Mono}
+\setmainfont{Helvetica Neue}
+\setsansfont{Helvetica Neue}
+\setmonofont{Andale Mono}
 
 \lstset{
   basicstyle=\ttfamily\small,
@@ -31,7 +31,7 @@
   rulecolor=\color{UCBFoundersRock}
 }
 
-\title[AI 辅助异步状态机跟踪]{一种基于 AI 辅助的 Tokio 异步状态机动态跟踪分析}
+\title[LLM 辅助异步状态机跟踪]{一种基于 LLM 辅助的 Tokio 异步状态机动态跟踪分析}
 \subtitle{从 GDB 原始日志到可解释报告}
 \author{陈玺州}
 \date{2026 年春夏开源操作系统训练营}
@@ -64,7 +64,7 @@
   \centering
   \begin{tikzpicture}[node distance=1.1cm, every node/.style={font=\large}]
     \node[draw=UCBBlue, thick, rounded corners, fill=UCBGray, minimum width=3.2cm, minimum height=1.0cm] (raw) {1. 获得原始数据};
-    \node[draw=UCBFoundersRock, thick, rounded corners, fill=UCBGray, minimum width=3.2cm, minimum height=1.0cm, right=of raw] (ai) {2. AI 辅助分析};
+    \node[draw=UCBFoundersRock, thick, rounded corners, fill=UCBGray, minimum width=3.2cm, minimum height=1.0cm, right=of raw] (ai) {2. LLM 辅助分析};
     \node[draw=UCBMedalist, thick, rounded corners, fill=UCBGray, minimum width=3.2cm, minimum height=1.0cm, right=of ai] (report) {3. 总结提炼};
     \draw[->, very thick, color=UCBBlue] (raw) -- (ai);
     \draw[->, very thick, color=UCBBlue] (ai) -- (report);
@@ -72,7 +72,7 @@
 
   \vspace{1.0em}
   \begin{alertblock}{核心优点}
-    暴露 AI 得出结果的路径：每个结论都可以回溯到命令、断点、日志、寄存器、内存地址和调用栈。
+    暴露 LLM 得出结果的路径：每个结论都可以回溯到命令、断点、日志、寄存器、内存地址和调用栈。
   \end{alertblock}
 \end{frame}
 
@@ -115,7 +115,7 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
   \end{block}
 \end{frame}
 
-\section{AI 分析}
+\section{LLM 分析}
 \subsection{分析流程}
 
 \begin{frame}{第二步：AI 辅助分析}
@@ -139,7 +139,7 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
 
   \vspace{0.8em}
   \begin{alertblock}{使用原则}
-    AI 不直接给最终裁决，而是帮助整理证据链、发现重复模式、标注不确定性。
+    LLM 不直接给最终裁决，而是帮助整理证据链、发现重复模式、标注不确定性。
   \end{alertblock}
 \end{frame}
 
@@ -175,7 +175,108 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
 
   \vspace{0.6em}
   \begin{alertblock}{底层分析里的危险}
-    AI 容易把所有值都解释完整；但系统调试需要保留“不知道”，否则会把临时值包装成错误结论。
+    LLM 容易把所有值都解释完整；但系统调试需要保留“不知道”，否则会把临时值包装成错误结论。
+  \end{alertblock}
+\end{frame}
+
+\section{控制块视角}
+\subsection{从状态机到控制块}
+
+\begin{frame}{从状态机到控制块}
+  \begin{columns}[T,totalwidth=\textwidth]
+    \begin{column}{0.47\textwidth}
+      \begin{block}{编译器生成的部分}
+        \begin{itemize}
+          \item \texttt{Future} frame
+          \item 状态编号：\texttt{Unresumed}/\texttt{SuspendN}/完成
+          \item 跨 \texttt{await} 仍需使用的局部变量
+          \item 当前正在等待的子 future：\texttt{\_\_awaitee}
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \begin{block}{运行时管理的部分}
+        \begin{itemize}
+          \item 是否 ready / running / complete
+          \item \texttt{Waker} 和 ready queue 节点
+          \item 任务归属的 executor / scheduler
+          \item 完成结果和等待者
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+
+  \vspace{0.7em}
+  \begin{alertblock}{控制块视角}
+    \texttt{Future} frame 解释“从哪里继续执行”；任务控制元数据解释“谁在什么时候再次 poll 它”。
+  \end{alertblock}
+\end{frame}
+
+\subsection{控制块字段}
+
+\begin{frame}{协程任务控制块包含什么}
+  \small
+  \begin{tabular}{>{\ttfamily}p{0.28\linewidth}p{0.60\linewidth}}
+    \toprule
+    字段类别 & 作用 \\
+    \midrule
+    state bits & 记录 running / notified / complete / cancelled 等生命周期状态 \\
+    future frame ptr & 指向保存 async 状态机和跨 await 变量的对象 \\
+    waker & I/O ready 后重新找到这个任务 \\
+    queue links & 挂到 ready queue 或 \texttt{FuturesUnordered} 的内部队列 \\
+    output / join & 任务完成后的返回值、错误和等待者关系 \\
+    scheduler handle & 知道应该交给哪个 runtime / executor 继续调度 \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.4em}
+  \begin{block}{本实验里的对应关系}
+    每个下载并不是显式 \texttt{tokio::spawn} 出来的 \texttt{JoinHandle}；更直接的调度单位是 \texttt{buffer\_unordered} / \texttt{FuturesUnordered} 内部保存的子 future 节点。
+  \end{block}
+\end{frame}
+
+\subsection{Waker 与唤醒}
+
+\begin{frame}[fragile]{Waker：控制块的回指针}
+  \begin{lstlisting}
+RawWaker {
+  data:   *const (),          // 指向 task node / 控制块
+  vtable: *const RawWakerVTable
+}
+
+RawWakerVTable:
+  clone       -> clone_arc_raw
+  wake        -> wake_arc_raw
+  wake_by_ref -> wake_by_ref_arc_raw
+  drop        -> drop_arc_raw
+  \end{lstlisting}
+
+  \vspace{0.4em}
+  \begin{itemize}
+    \item 子 future 返回 \texttt{Pending} 时，通过 \texttt{Context} 注册 \texttt{Waker}
+    \item I/O ready 后调用 \texttt{wake\_by\_ref}，把对应节点重新标记为 ready
+    \item 下一轮 \texttt{FuturesUnordered::poll\_next} 选择 ready 子 future 继续 poll
+  \end{itemize}
+\end{frame}
+
+\subsection{与 OS TCB 对比}
+
+\begin{frame}{与操作系统 TCB 的对照}
+  \begin{tabular}{p{0.28\linewidth}p{0.30\linewidth}p{0.32\linewidth}}
+    \toprule
+    维度 & OS thread TCB & Tokio / Future 任务节点 \\
+    \midrule
+    调度单位 & 内核线程 & 用户态 future 实例 \\
+    保存现场 & 寄存器 + 独立线程栈 & future frame + 状态位 \\
+    等待 I/O & 阻塞线程，内核切换 & 返回 \texttt{Pending}，注册 \texttt{Waker} \\
+    恢复方式 & 调度回同一线程上下文 & executor 再次 \texttt{poll} \\
+    局部变量 & 主要在线程栈中 & 跨 \texttt{await} 的变量进入 frame \\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.8em}
+  \begin{alertblock}{关键差异}
+    Tokio task 不保存完整 CPU 上下文和私有 OS 栈；一次 \texttt{poll} 临时借用 worker 栈，持久状态保存在 future frame 和任务元数据中。
   \end{alertblock}
 \end{frame}
 
@@ -245,14 +346,14 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
   \begin{enumerate}
     \item 命令可复现：构建命令、GDB 脚本、并发参数明确
     \item 证据可追踪：结论能回到断点、寄存器、内存和 backtrace
-    \item AI 路径可暴露：结构化、假设、证据对照、人工校验分层清楚
+    \item LLM 路径可暴露：结构化、假设、证据对照、人工校验分层清楚
     \item 不确定性可保留：不能稳定对应的值不写成确定结论
   \end{enumerate}
 \end{frame}
 
-\subsection{AI 使用}
+\subsection{LLM 使用}
 
-\begin{frame}{如何更好地使用 AI}
+\begin{frame}{如何更好地使用 LLM}
   \begin{itemize}
     \item 先给原始数据，再要求分析
     \item 把大问题拆成可验证的小问题
@@ -263,7 +364,7 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
 
   \vspace{0.7em}
   \begin{alertblock}{一句话}
-    AI 的价值不是替代推理，而是把推理过程显性化、结构化、可复查。
+    LLM 的价值不是替代推理，而是把推理过程显性化、结构化、可复查。
   \end{alertblock}
 \end{frame}
 
@@ -275,7 +376,7 @@ timeout 35s rust-gdb -q target/debug/async -x gdb_scripts/gdb_track.gdb
   \end{block}
 
   \begin{block}{方法收获}
-    建立了从原始日志到 AI 辅助分析，再到人工提炼报告的可解释工作流。
+    建立了从原始日志到 LLM 辅助分析，再到人工提炼报告的可解释工作流。
   \end{block}
 
   \begin{alertblock}{训练营后的理解}
